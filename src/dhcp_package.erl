@@ -63,10 +63,8 @@ decode(<<Op:8/integer, HType:8/integer, HLen:8/integer, Hops:8/integer,
          File:128/binary,
          Options/binary>>) ->
     DecodedOptions = decode_options(Options),
-    case get_option(message_type, DecodedOptions) of
-        undefined ->
-            {error, message_type};
-        MT ->
+    case lists:keyfind(message_type, 1, DecodedOptions) of
+        {message_type, MT} ->
             {ok, #dhcp_package{
                     op = decode_op(Op),
                     htype = decode_htype(HType),
@@ -84,7 +82,9 @@ decode(<<Op:8/integer, HType:8/integer, HLen:8/integer, Hops:8/integer,
                     file = decode_string(File),
                     options = DecodedOptions,
                     message_type = MT
-                   }}
+                   }};
+        _ ->
+            {error, message_type}
     end;
 
 decode(P) ->
@@ -185,8 +185,8 @@ encode_op(Atom) ->
 get_option(Option, Message) ->
     get_option(Option, undefined, Message).
 
-get_option(Option, Default, Message) ->
-    case lists:keyfind(Option, 1, Message) of
+get_option(Option, Default, Options) ->
+    case lists:keyfind(Option, 1, Options) of
         {Option, Value} ->
             Value;
         _ ->
