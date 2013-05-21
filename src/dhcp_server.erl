@@ -39,7 +39,7 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 register_handler(Handler, Spec) ->
-    gen_server:call({local, ?SERVER}, {register, Handler, Spec}).
+    gen_server:call(?SERVER, {register, Handler, Spec}).
 
 %%%===================================================================
 %%% gen_server callbacks
