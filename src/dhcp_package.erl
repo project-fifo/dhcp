@@ -185,7 +185,7 @@ encode_op(Atom) ->
 get_option(Option, Message) ->
     get_option(Option, undefined, Message).
 
-get_option(Option, Default, Options) ->
+get_option(Option, Default, #dhcp_package{options = Options}) ->
     case lists:keyfind(Option, 1, Options) of
         {Option, Value} ->
             Value;
