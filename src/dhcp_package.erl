@@ -1,10 +1,13 @@
 -module(dhcp_package).
 
--include("dhcp.hrl").
-
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
+
+-include("dhcp.hrl").
+
+-opaque package() :: #dhcp_package{}.
+-export_type([package/0]).
 
 -export([decode/1, encode/1, clone/1]).
 

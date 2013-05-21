@@ -13,7 +13,7 @@
 -include("dhcp.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/0, register_handler/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -22,7 +22,7 @@
 -define(SERVER, ?MODULE).
 -define(TBL, dhcp_sessions).
 
--record(state, {socket}).
+-record(state, {socket, handlers = []}).
 
 %%%===================================================================
 %%% API
@@ -37,6 +37,9 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+register_handler(Handler, Spec) ->
+    gen_server:call({local, ?SERVER}, {register, Handler, Spec}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -103,15 +106,20 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info ({udp, _Socket, _IP, 68, Packet}, State = #state{socket=_Socket}) ->
+handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handlers = Handler}) ->
     D = dhcp_package:decode(Packet),
     MT = D#dhcp_package.message_type,
     ID  = {D#dhcp_package.chaddr, D#dhcp_package.xid},
     case {ets:lookup(?TBL), MT} of
         {[], discover} ->
-            {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, []),
-            gen_fsm:send_event(Pid, D),
-            ets:insert(?TBL, {ID, Pid});
+            case match(D, Handler) of
+                {ok, H} ->
+                    {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
+                    gen_fsm:send_event(Pid, D),
+                    ets:insert(?TBL, {ID, Pid});
+                _ ->
+                    ok
+            end;
         {[Pid], _} ->
             gen_fsm:send_event(Pid, D);
         _ ->
@@ -149,3 +157,26 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+match(Pkg, [{Handler, Spec} | R]) ->
+    case match_pkg(Pkg, Spec) of
+        true ->
+            {ok, Handler};
+        false ->
+            match(Pkg, R)
+    end;
+match(_Pkg, []) ->
+    undefined.
+match_pkg(Pkg, {Mac}) ->
+    match_mac(dhcp_package:get_chaddr(Pkg), Mac).
+
+
+match_mac({A, B, C, D, E, F}, {A, B, C, D, E, F}) -> true;
+match_mac({A, B, C, D, E, _}, {A, B, C, D, E, '_'}) -> true;
+match_mac({A, B, C, D, _, _}, {A, B, C, D, '_', '_'}) -> true;
+match_mac({A, B, C, _, _, _}, {A, B, C, '_', '_', '_'}) -> true;
+match_mac({A, B, _, _, _, _}, {A, B, '_', '_', '_', '_'}) -> true;
+match_mac({A, _, _, _, _, _}, {A, '_', '_', '_', '_', '_'}) -> true;
+match_mac({_, _, _, _, _, _}, {'_', '_', '_', '_', '_', '_'}) -> true;
+match_mac({_, _, _, _, _, _}, '_') -> true;
+match_mac(_,_) -> false.

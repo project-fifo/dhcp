@@ -12,7 +12,6 @@
 
 -include("dhcp.hrl").
 
-
 %% API
 -export([start_link/2]).
 
@@ -158,9 +157,14 @@ offered(#dhcp_package{xid = _XId, message_type = decline}, State = #state{xid = 
 bound(timeout, State) ->
     {stop, normal, State};
 
-bound(#dhcp_package{xid = _XId, message_type = release}, State = #state{xid = _XId}) ->
-    {stop, normal, State};
-
+bound(Pkg = #dhcp_package{xid = _XId, message_type = release},
+      State = #state{xid = _XId, handler = M, handler_state = S}) ->
+    case M:release(Pkg, S) of
+        {ok, S1} ->
+            {stop, normal, State#state{handler_state = S1}};
+        _ ->
+            {stop, normal, State}
+    end;
 bound(Pkg = #dhcp_package{xid = _XId, message_type = request},
       State = #state{xid = _XId, server_identifier = Si, yiaddr = YiAddr}) ->
     case {dhcp_package:get_option(dhcp_server_identifier, Pkg),
