@@ -52,7 +52,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, {{simple_one_for_one, 5, 10}, [?CHILD(sniffle_create_fsm, worker)]}}.
+    {ok, {{simple_one_for_one, 5, 10}, [?CHILD(dhcp_fsm, worker)]}}.
 
 %%%===================================================================
 %%% Internal functions
