@@ -288,9 +288,9 @@ delegate(F, Pkg, State) ->
     delegate(F, Pkg, [], State).
 
 delegate(F, Pkg, Opts, State = #state{handler = M}) ->
-    RPkg = lists:fold(fun({K, V}, P) ->
-                              dhcp_package:set_option(K, V, P)
-                      end, dhcp_package:clone(Pkg), Opts),
+    RPkg = lists:foldl(fun({K, V}, P) ->
+                               dhcp_package:set_option(K, V, P)
+                       end, dhcp_package:clone(Pkg), Opts),
     RPkg1 = dhcp_package:set_op(reply, RPkg),
     case  M:F(RPkg1, Pkg, State#state.handler_state) of
         {ok, Reply, S1} ->
