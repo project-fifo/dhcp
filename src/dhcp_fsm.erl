@@ -304,7 +304,7 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                     lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, Reply])
             end;
         {ok, S1} ->
-            {ok, S1};
+            {ok, State#state{handler_state = S1, last=erlang:now()}};
         E ->
             E
     end.
