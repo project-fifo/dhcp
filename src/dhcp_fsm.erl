@@ -297,7 +297,7 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
             case dhcp_package:valid_reply(Reply) of
                 true ->
                     Dst = reply_addr(Reply),
-                    Bin = dhcp_package:encode(Reply),
+                    {ok, Bin} = dhcp_package:encode(Reply),
                     gen_udp:send(State#state.socket, Dst, 68, Bin),
                     {ok, Reply, State#state{handler_state = S1, last=erlang:now()}};
                 false ->

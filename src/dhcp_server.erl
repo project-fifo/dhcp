@@ -107,23 +107,27 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handlers = Handler}) ->
-    D = dhcp_package:decode(Packet),
-    MT = D#dhcp_package.message_type,
-    ID  = {D#dhcp_package.chaddr, D#dhcp_package.xid},
-    case {ets:lookup(?TBL), MT} of
-        {[], discover} ->
-            case match(D, Handler) of
-                {ok, H} ->
-                    {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
-                    gen_fsm:send_event(Pid, D),
-                    ets:insert(?TBL, {ID, Pid});
+    case dhcp_package:decode(Packet) of
+        {ok, D} ->
+            MT = D#dhcp_package.message_type,
+            ID  = {D#dhcp_package.chaddr, D#dhcp_package.xid},
+            case {ets:lookup(?TBL), MT} of
+                {[], discover} ->
+                    case match(D, Handler) of
+                        {ok, H} ->
+                            {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
+                            gen_fsm:send_event(Pid, D),
+                            ets:insert(?TBL, {ID, Pid});
+                        _ ->
+                            ok
+                    end;
+                {[Pid], _} ->
+                    gen_fsm:send_event(Pid, D);
                 _ ->
                     ok
             end;
-        {[Pid], _} ->
-            gen_fsm:send_event(Pid, D);
-        _ ->
-            ok
+        E ->
+            lager:warning("Decoding failed: ~p (~p)", [E, Packet])
     end,
     {noreply, State};
 handle_info(_Info, State) ->
