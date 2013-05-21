@@ -130,9 +130,9 @@ handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handl
                         undefined ->
                             case match(D, Handler) of
                                 {ok, H} ->
-                                    {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
-                                    gen_fsm:send_event(Pid, D),
-                                    ets:insert(?TBL, {ID, Pid});
+                                    {ok, Pid1} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
+                                    gen_fsm:send_event(Pid1, D),
+                                    ets:insert(?TBL, {ID, Pid1});
                                 _ ->
                                     ok
                             end;
