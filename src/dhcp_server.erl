@@ -126,10 +126,8 @@ handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handl
                             ok
                     end;
                 {[{ID, Pid}], _} ->
-                    case erlang:is_alive(Pid) of
-                        true ->
-                            gen_fsm:send_event(Pid, D);
-                        _ ->
+                    case  process_info(Pid) of
+                        undefined ->
                             case match(D, Handler) of
                                 {ok, H} ->
                                     {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
@@ -137,7 +135,9 @@ handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handl
                                     ets:insert(?TBL, {ID, Pid});
                                 _ ->
                                     ok
-                            end
+                            end;
+                        _ ->
+                            gen_fsm:send_event(Pid, D)
                     end;
                 _ ->
                     ok
