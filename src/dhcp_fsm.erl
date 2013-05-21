@@ -102,8 +102,7 @@ initial(timeout, State) ->
 
 initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
     case delegate(discover, Pkg,
-                  [{ip_address_lease_time, 3000},
-                   {dhcp_server_identifier, State#state.server_identifier}], State) of
+                  [{ip_address_lease_time, 3000}], State) of
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(10)};
@@ -116,8 +115,7 @@ initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
 
 initial(Pkg = #dhcp_package{message_type = request}, State) ->
     case delegate(request, Pkg,
-                  [{ip_address_lease_time, 3000},
-                   {dhcp_server_identifier, State#state.server_identifier}], State) of
+                  [{ip_address_lease_time, 3000}], State) of
         {ok, RPkg, State1} ->
             Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
             YiAddr = dhcp_package:get_yiaddr(RPkg),
@@ -295,7 +293,7 @@ delegate(F, Pkg, State) ->
 delegate(F, Pkg, Opts, State = #state{handler = M}) ->
     RPkg = lists:foldl(fun({K, V}, P) ->
                                dhcp_package:set_option(K, V, P)
-                       end, dhcp_package:clone(Pkg), Opts),
+                       end, dhcp_package:clone(Pkg), [{dhcp_server_identifier, State#state.server_identifier} | Opts]),
     RPkg1 = dhcp_package:set_op(reply, RPkg),
     case  M:F(RPkg1, Pkg, State#state.handler_state) of
         {ok, Reply, S1} ->
@@ -328,7 +326,7 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                     gen_udp:send(State#state.socket, Dst, 68, Bin),
                     {ok, R, State#state{handler_state = S1, last=erlang:now()}};
                 false ->
-                    lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, Reply])
+                    lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, R])
             end;
         {ok, S1} ->
             {ok, State#state{handler_state = S1, last=erlang:now()}};
