@@ -1,0 +1,18 @@
+-record(dhcp_package,
+        {op = request,
+         htype = unknown,
+         hlen = 0,
+         hops = 0,
+         xid = 0,
+         secs = 0,
+         flags = [],
+         ciaddr = 0,
+         yiaddr = 0,
+         siaddr = 0,
+         giaddr = 0,
+         chaddr = [],
+         sname = <<>>,
+         file = <<>>,
+         options = [],
+         message_type
+        }).

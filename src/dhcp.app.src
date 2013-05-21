@@ -1,0 +1,13 @@
+{application, dhcp,
+ [
+  {description, ""},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  lager,
+                  stdlib
+                 ]},
+  {mod, { dhcp_app, []}},
+  {env, []}
+ ]}.
