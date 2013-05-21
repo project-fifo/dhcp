@@ -29,7 +29,6 @@
          bound/2
         ]).
 
-
 -define(SERVER, ?MODULE).
 
 -define(S(S), (1000*S)).

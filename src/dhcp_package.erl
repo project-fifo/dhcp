@@ -53,7 +53,7 @@
 
 decode(<<Op:8/integer, HType:8/integer, HLen:8/integer, Hops:8/integer,
          XId:32/integer,
-         Secs:8/integer, Flags:1/binary,
+         Secs:16/integer, Flags:2/binary,
          CiAddr:32/integer,
          YiAddr:32/integer,
          SiAddr:32/integer,
@@ -108,16 +108,15 @@ encode(#dhcp_package{
     Options1 = lists:keystore(message_type, 1, Options, {message_type, MT}),
     {ok, <<(encode_op(Op)):8/integer, (encode_htype(HType)):8/integer, HLen:8/integer, Hops:8/integer,
            XId:32/integer,
-           Secs:8/integer, (encode_flags(Flags)):1/binary,
+           Secs:16/integer, (encode_flags(Flags)):2/binary,
            (encode_ip(CiAddr)):32/integer,
            (encode_ip(YiAddr)):32/integer,
            (encode_ip(SiAddr)):32/integer,
            (encode_ip(GiAddr)):32/integer,
-           (encode_mac(ChAddr)):128/integer,
+           (encode_mac(ChAddr)):16/binary,
            (encode_string(SName, 64)):64/binary,
            (encode_string(File, 128)):128/binary,
            (encode_options(Options1))/binary>>}.
-
 
 clone(M) ->
     M#dhcp_package{
@@ -279,15 +278,15 @@ decode_htype(T) ->
 encode_htype(T) ->
     htype(encode, T).
 
-decode_flags(<<1:1/integer, _:7>>) ->
+decode_flags(<<1:1/integer, _:15>>) ->
     [broadcast];
-decode_flags(<<0:1/integer, _:7>>) ->
+decode_flags(<<0:1/integer, _:15>>) ->
     [].
 
 encode_flags([]) ->
-    <<0:8/integer>>;
+    <<0:16/integer>>;
 encode_flags([broadcast]) ->
-    <<1:1/integer, 0:8/integer>>.
+    <<1:1/integer, 0:15/integer>>.
 
 decode_ip(IP) ->
     IP.
@@ -320,7 +319,8 @@ encode_string(B, Max) ->
 -define(OPT(Atom, Num, Type),
         opt(decode, Num) ->  {ok, Atom};
             opt(encode, Atom) ->  {ok, Num};
-            opt(type, Atom) -> {ok, Type}).
+            opt(type, Atom) -> {ok, Type};
+            opt(type, Num) -> {ok, Type}).
 
 ?OPT(pad,                              0,    octets);
 ?OPT(subnet_mask,                      1,    ipaddr);
@@ -520,7 +520,7 @@ decode_option(Opt) ->
 option_type(Opt) ->
     opt(type, Opt).
 
-decode_type(integer, <<L:8, I:L, R/binary>>) when  L > 1 ->
+decode_type(integer, <<L:8, I:L/integer-unit:8, R/binary>>) when  L > 1 ->
     {I, R};
 decode_type(octets, <<L:8, I:L/binary, R/binary>>) when  L > 1 ->
     {I, R};
@@ -546,11 +546,13 @@ decode_type(message_type, <<1:8, T:8, R/binary>>) ->
 encode_type(octets, B) when is_binary(B) ->
     case byte_size(B) of
         L when L =< 255,
-               L >= 1 ->
+               L >= 0 ->
             <<L:8, B/binary>>
     end;
 encode_type(ipaddr, IP) when is_integer(IP) ->
     <<4:8, IP:32>>;
+encode_type(integer, I) when is_integer(I) ->
+    <<4:8, I:32>>;
 encode_type(ipaddrs, IPs) when is_list(IPs) ->
     case length(IPs) of
         L when (L*4) =< 255,
@@ -566,7 +568,7 @@ encode_type(bytes, Bs) when is_list(Bs) ->
             <<L:8, << <<B:8>> || B <- Bs, is_integer(B) >>/binary>>
     end;
 encode_type(short, S) when is_integer(S) ->
-    <<2:8, S:18>>;
+    <<2:8, S:16>>;
 encode_type(shorts, Ss) when is_list(Ss) ->
     case length(Ss) of
         L when (L*2) =< 255,
@@ -582,8 +584,11 @@ encode_type(string, S) when is_binary(S) ->
 encode_type(message_type, Type) ->
     <<1:8, (encode_message_type(Type)):8>>.
 
-decode_options(<<99:8, 130:8, 83:8, 99:8, 0:8, Opts>>) ->
-    decode_options(Opts, []).
+decode_options(<<99:8, 130:8, 83:8, 99:8, Opts/binary>>) ->
+    lists:sort(decode_options(Opts, [])).
+
+decode_options(<<0:8, R/binary>>, Opts) ->
+    decode_options(R, Opts);
 
 decode_options(<<255:8, _/binary>>, Opts) ->
     Opts;
@@ -628,7 +633,7 @@ encode_options(Opts) ->
                   1 -> <<0:24>>;
                   _ -> <<>>
               end,
-    << 99:8, 130:8, 83:8, 99:8, Content/binary, 255:1, Padding/binary >>.
+    << 99:8, 130:8, 83:8, 99:8, Content/binary, 255:8, Padding/binary >>.
 
 ?MTYPE(discover,    1);
 ?MTYPE(offer,       2);
@@ -706,6 +711,7 @@ check_option(P, [], [Forbidden | R]) ->
 
 
 -ifdef(TEST).
+
 str_decode_test() ->
     ?assertEqual(<<"a">>, decode_string(<<"a", 0:8>>)),
     ?assertEqual(<<"a">>, decode_string(<<$a, 0:8, $c>>)),
@@ -715,4 +721,33 @@ str_encode_test() ->
     ?assertEqual(<<"a", 0:8>>, encode_string(<<"a">>, 2)),
     ok.
 
+decode_test() ->
+    P = <<1,
+          1,
+          6,
+          0,
+          227,48,230,107,
+          0,1,
+          0,0,
+          0,0,0,0,
+          0,0,0,0,
+          0,0,0,0,
+          0,0,0,0,
+          16,154,221,112,125,122,0,0,0,0,0,0,0,0,0,0,
+          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+          99,130,83,99,
+          53,1,1,
+          55,9,1,3,6,15,119,95,252,44,46,
+          57,2,5,220,
+          61,7,1,16,154,221,112,125,122,
+          51,4,0,118,167,0,
+          12,12,83,99,104,114,111,101,100,105,110,103,101,114,
+          255,0,0,0,0,0,0,0,0,0,0,0,0>>,
+    {ok, D} = decode(P),
+    {ok, P1} = encode(D),
+    {ok, D1} = decode(P1),
+    ?assertEqual(D, D1).
+
 -endif.
+
