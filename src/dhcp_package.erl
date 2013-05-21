@@ -15,6 +15,8 @@
 
 -export([set_option/3,
          ensure_option/3,
+         merge_options/2,
+         set_field/3,
          set_op/2,
          set_htype/2,
          set_hlen/2,
@@ -34,6 +36,7 @@
 
 -export([get_option/2,
          get_option/3,
+         get_field/2,
          get_op/1,
          get_htype/1,
          get_hlen/1,
@@ -51,13 +54,13 @@
          get_options/1,
          get_message_type/1]).
 
-decode(<<Op:8/integer, HType:8/integer, HLen:8/integer, Hops:8/integer,
-         XId:32/integer,
-         Secs:16/integer, Flags:2/binary,
-         CiAddr:32/integer,
-         YiAddr:32/integer,
-         SiAddr:32/integer,
-         GiAddr:32/integer,
+decode(<<Op:8/unsigned-integer, HType:8/unsigned-integer, HLen:8/unsigned-integer, Hops:8/unsigned-integer,
+         XId:32/unsigned-integer,
+         Secs:16/unsigned-integer, Flags:2/binary,
+         CiAddr:32/unsigned-integer,
+         YiAddr:32/unsigned-integer,
+         SiAddr:32/unsigned-integer,
+         GiAddr:32/unsigned-integer,
          ChAddr:16/binary,
          SName:64/binary,
          File:128/binary,
@@ -106,13 +109,14 @@ encode(#dhcp_package{
           message_type = MT
          }) ->
     Options1 = lists:keystore(message_type, 1, Options, {message_type, MT}),
-    {ok, <<(encode_op(Op)):8/integer, (encode_htype(HType)):8/integer, HLen:8/integer, Hops:8/integer,
-           XId:32/integer,
-           Secs:16/integer, (encode_flags(Flags)):2/binary,
-           (encode_ip(CiAddr)):32/integer,
-           (encode_ip(YiAddr)):32/integer,
-           (encode_ip(SiAddr)):32/integer,
-           (encode_ip(GiAddr)):32/integer,
+    {ok, <<(encode_op(Op)):8/unsigned-integer, (encode_htype(HType)):8/unsigned-integer,
+           HLen:8/unsigned-integer, Hops:8/unsigned-integer,
+           XId:32/unsigned-integer,
+           Secs:16/unsigned-integer, (encode_flags(Flags)):2/binary,
+           (encode_ip(CiAddr)):32/unsigned-integer,
+           (encode_ip(YiAddr)):32/unsigned-integer,
+           (encode_ip(SiAddr)):32/unsigned-integer,
+           (encode_ip(GiAddr)):32/unsigned-integer,
            (encode_mac(ChAddr)):16/binary,
            (encode_string(SName, 64)):64/binary,
            (encode_string(File, 128)):128/binary,
@@ -206,38 +210,118 @@ ensure_option(Key, Value, Message) ->
             Message
     end.
 
-set_op(Op, M) ->
+merge_options([], Message) ->
+    Message;
+
+merge_options([{K, V}|R], Message) ->
+    merge_options(R, set_option(K, V, Message)).
+
+set_field(op, V, M) ->
+    set_op(V, M);
+set_field(htype, V, M) ->
+    set_htype(V, M);
+set_field(hlen, V, M) ->
+    set_hlen(V, M);
+set_field(hops, V, M) ->
+    set_hops(V, M);
+set_field(xid, V, M) ->
+    set_xid(V, M);
+set_field(secs, V, M) ->
+    set_secs(V, M);
+set_field(flags, V, M) ->
+    set_flags(V, M);
+set_field(ciaddr, V, M) ->
+    set_ciaddr(V, M);
+set_field(yiaddr, V, M) ->
+    set_yiaddr(V, M);
+set_field(siaddr, V, M) ->
+    set_siaddr(V, M);
+set_field(giaddr, V, M) ->
+    set_giaddr(V, M);
+set_field(chaddr, V, M) ->
+    set_chaddr(V, M);
+set_field(sname, V, M) ->
+    set_sname(V, M);
+set_field(file, V, M) ->
+    set_file(V, M);
+set_field(options, V, M) ->
+    set_options(V, M);
+set_field(message_type, V, M) ->
+    set_message_type(V, M).
+
+-define(IS_BYTE(V), is_integer(V), V >= 0, V =< 255).
+-define(IS_SHORT(V), is_integer(V), V >= 0, V =< 16#FFFF).
+-define(IS_INT(V), is_integer(V), V >= 0, V =< 16#FFFFFFFF).
+
+set_op(Op = request, M) ->
+    M#dhcp_package{op = Op};
+set_op(Op = reply, M) ->
     M#dhcp_package{op = Op}.
-set_htype(HType, M) ->
+set_htype(HType, M) when is_atom(HType) ->
     M#dhcp_package{htype = HType}.
-set_hlen(HLen, M) ->
+set_hlen(HLen, M) when ?IS_BYTE(HLen) ->
     M#dhcp_package{hlen = HLen}.
-set_hops(Hops, M) ->
+set_hops(Hops, M) when ?IS_BYTE(Hops) ->
     M#dhcp_package{hops = Hops}.
-set_xid(XId, M) ->
+set_xid(XId, M) when ?IS_INT(XId) ->
     M#dhcp_package{xid = XId}.
-set_secs(Secs, M) ->
+set_secs(Secs, M) when ?IS_SHORT(Secs) ->
     M#dhcp_package{secs = Secs}.
-set_flags(Flags, M) ->
+set_flags(Flags = [], M) ->
+    M#dhcp_package{flags = Flags};
+set_flags(Flags = [broadcast], M) ->
     M#dhcp_package{flags = Flags}.
-set_ciaddr(CiAddr, M) ->
+set_ciaddr(CiAddr, M) when ?IS_INT(CiAddr) ->
     M#dhcp_package{ciaddr = CiAddr}.
-set_yiaddr(YiAddr, M) ->
+set_yiaddr(YiAddr, M) when ?IS_INT(YiAddr) ->
     M#dhcp_package{yiaddr = YiAddr}.
-set_siaddr(SiAddr, M) ->
+set_siaddr(SiAddr, M) when ?IS_INT(SiAddr) ->
     M#dhcp_package{siaddr = SiAddr}.
-set_giaddr(GiAddr, M) ->
+set_giaddr(GiAddr, M) when ?IS_INT(GiAddr) ->
     M#dhcp_package{giaddr = GiAddr}.
-set_chaddr(ChAddr, M) ->
+set_chaddr(ChAddr = {_,_,_,_,_,_}, M) ->
     M#dhcp_package{chaddr = ChAddr}.
-set_sname(SName, M) ->
+set_sname(SName, M) when is_binary(SName) ->
     M#dhcp_package{sname = SName}.
-set_file(File, M) ->
+set_file(File, M) when is_binary(File) ->
     M#dhcp_package{file = File}.
-set_options(Options, M) ->
+set_options(Options, M) when is_list(Options) ->
     M#dhcp_package{options = Options}.
-set_message_type(MT, M) ->
+set_message_type(MT, M) when is_atom(MT) ->
     M#dhcp_package{message_type = MT}.
+
+get_field(op, M) ->
+    get_op(M);
+get_field(htype, M) ->
+    get_htype(M);
+get_field(hlen, M) ->
+    get_hlen(M);
+get_field(hops, M) ->
+    get_hops(M);
+get_field(xid, M) ->
+    get_xid(M);
+get_field(secs, M) ->
+    get_secs(M);
+get_field(flags, M) ->
+    get_flags(M);
+get_field(ciaddr, M) ->
+    get_ciaddr(M);
+get_field(yiaddr, M) ->
+    get_yiaddr(M);
+get_field(siaddr, M) ->
+    get_siaddr(M);
+get_field(giaddr, M) ->
+    get_giaddr(M);
+get_field(chaddr, M) ->
+    get_chaddr(M);
+get_field(sname, M) ->
+    get_sname(M);
+get_field(file, M) ->
+    get_file(M);
+get_field(options, M) ->
+    get_options(M);
+get_field(message_type, M) ->
+    get_message_type(M).
 
 get_op(M) ->
     M#dhcp_package.op.
