@@ -111,7 +111,7 @@ handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handl
         {ok, D} ->
             MT = D#dhcp_package.message_type,
             ID  = {D#dhcp_package.chaddr, D#dhcp_package.xid},
-            case {ets:lookup(?TBL), MT} of
+            case {ets:lookup(?TBL, ID), MT} of
                 {[], discover} ->
                     case match(D, Handler) of
                         {ok, H} ->
