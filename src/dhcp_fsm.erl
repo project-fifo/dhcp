@@ -137,7 +137,7 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
         {Si, YiAddr} ->
             case delegate(request, Pkg, State) of
                 {ok, RPkg, State1} ->
-                    Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
+                    Timeout = dhcp_package:get_option(ip_address_lease_time, dhcp_package:get_option(ip_address_lease_time, 3000, RPkg), Pkg),
                     {next_state, bound, State#state{last=erlang:now(),
                                                     handler_state = State1}, ?S(Timeout)};
                 {ok, State1} ->
