@@ -105,6 +105,8 @@ initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(10)};
+        {ok, State1} ->
+            {next_state, initial, State1, ?S(10)}
         E ->
             lager:warning("[DHCP] callback module returned ~p", [E]),
             {next_state, initial, State#state{xid = XId}, ?S(10)}
@@ -118,9 +120,10 @@ initial(Pkg = #dhcp_package{message_type = request}, State) ->
             Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, bound, State1#state{yiaddr = YiAddr}, ?S(Timeout)};
+        {ok, State1} ->
+            {next_state, initial, State1, ?S(10)}
         E ->
             lager:warning("[DHCP] callback module returned ~p", [E]),
-
             {next_state, initial, State, ?S(10)}
     end.
 

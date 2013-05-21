@@ -125,7 +125,7 @@ handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handl
                         _ ->
                             ok
                     end;
-                {[Pid], _} ->
+                {[{ID, Pid}], _} ->
                     case erlang:is_alive(Pid) of
                         true ->
                             gen_fsm:send_event(Pid, D);
