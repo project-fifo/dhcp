@@ -114,8 +114,8 @@ initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
 
 initial(Pkg = #dhcp_package{message_type = request}, State) ->
     case delegate(request, Pkg,
-                  [{renewal_time, 3000},
-                   {rebinding_time, 3000}], State) of
+                  [{ip_address_lease_time, 3000},
+                   {dhcp_server_identifier, State#state.server_identifier}], State) of
         {ok, RPkg, State1} ->
             Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
             YiAddr = dhcp_package:get_yiaddr(RPkg),
