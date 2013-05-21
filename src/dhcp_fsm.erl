@@ -80,7 +80,7 @@ init([Socket, Handler]) ->
                          handler_state = HandlerState,
                          socket = Socket,
                          server_identifier = ServerIdentifier,
-                         last = erlang:now()}, ?S(1)}.
+                         last = erlang:now()}, ?S(10)}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -128,6 +128,7 @@ initial(Pkg = #dhcp_package{message_type = request}, State) ->
     end.
 
 offered(timeout, State) ->
+    lager:warning("[DHCP] offer timed out."),
     {stop, normal, State};
 
 offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
@@ -302,6 +303,20 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                         Reply;
                     {ack, R0} ->
                         dhcp_package:set_message_type(ack, R0);
+                    {ack, IP, Mask, R0} ->
+                        R1 = dhcp_package:set_yiaddr(IP, R0),
+                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        dhcp_package:set_message_type(ack, R2);
+                    {ack, IP, Mask, GWInfo, R0} ->
+                        R1 = dhcp_package:set_yiaddr(IP, R0),
+                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = case GWInfo of
+                                 GW when is_integer(GW) ->
+                                     dhcp_package:set_option(router_address, [GW], R1);
+                                 GWs when is_list(GWs) ->
+                                     dhcp_package:set_option(router_address, GWs, R1)
+                             end,
+                        dhcp_package:set_message_type(ack, R2);
                     {nack, R0} ->
                         dhcp_package:set_message_type(nack, R0);
                     {offer, IP, Mask, R0} ->
