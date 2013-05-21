@@ -79,6 +79,10 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+
+handle_call({register, H, Spec}, _From, State = #state{handlers = Hs}) ->
+    Reply = ok,
+    {reply, Reply, State#state{ handlers = [{H, Spec} | Hs]}};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
