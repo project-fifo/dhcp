@@ -101,7 +101,9 @@ initial(timeout, State) ->
     {stop, normal, State};
 
 initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
-    case delegate(discover, Pkg, State) of
+    case delegate(discover, Pkg,
+                  [{ip_address_lease_time, 3000},
+                   {dhcp_server_identifier, State#state.server_identifier}], State) of
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(10)};
@@ -297,12 +299,34 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
     RPkg1 = dhcp_package:set_op(reply, RPkg),
     case  M:F(RPkg1, Pkg, State#state.handler_state) of
         {ok, Reply, S1} ->
-            case dhcp_package:valid_reply(Reply) of
+            R = case Reply of
+                    #dhcp_package{} ->
+                        Reply;
+                    {ack, R0} ->
+                        dhcp_package:set_message_type(ack, R0);
+                    {nack, R0} ->
+                        dhcp_package:set_message_type(nack, R0);
+                    {offer, IP, Mask, R0} ->
+                        R1 = dhcp_package:set_yiaddr(IP, R0),
+                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        dhcp_package:set_message_type(offer, R2);
+                    {offer, IP, Mask, GWInfo, R0} ->
+                        R1 = dhcp_package:set_yiaddr(IP, R0),
+                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = case GWInfo of
+                                 GW when is_integer(GW) ->
+                                     dhcp_package:set_option(router_address, [GW], R1);
+                                 GWs when is_list(GWs) ->
+                                     dhcp_package:set_option(router_address, GWs, R1)
+                             end,
+                        dhcp_package:set_message_type(offer, R2)
+                end,
+            case dhcp_package:valid_reply(R) of
                 true ->
-                    Dst = reply_addr(Reply),
-                    {ok, Bin} = dhcp_package:encode(Reply),
+                    Dst = reply_addr(R),
+                    {ok, Bin} = dhcp_package:encode(R),
                     gen_udp:send(State#state.socket, Dst, 68, Bin),
-                    {ok, Reply, State#state{handler_state = S1, last=erlang:now()}};
+                    {ok, R, State#state{handler_state = S1, last=erlang:now()}};
                 false ->
                     lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, Reply])
             end;
