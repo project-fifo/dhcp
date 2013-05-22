@@ -104,7 +104,6 @@
                        {requested_ip_address, ip()} |
                        {ip_address_lease_time, int32()} |
                        {overload, byte()} |
-                       {message_type, message_type()} |
                        {dhcp_server_identifier, ip()} |
                        {parameter_request_list, [byte(), ...]} |
                        {dhcp_error_message, binary()} |

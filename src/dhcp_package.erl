@@ -3,6 +3,8 @@
 -ifdef(TEST).
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-export([decode_htype/1, encode_htype/1,
+         decode_op/1, encode_op/1]).
 -endif.
 
 -include("dhcp.hrl").
@@ -906,11 +908,23 @@ check_option(P, [], [Forbidden | R]) ->
 -ifdef(TEST).
 
 
+null_terminated_string() ->
+    ?LET(S,
+         list(range(1,255)),
+         list_to_binary(S)).
+
 prop_mac_conversion() ->
     ?FORALL(Mac, mac(),
             begin
                 EncDecMac = decode_mac(encode_mac(Mac)),
                 EncDecMac =:= Mac
+            end).
+
+prop_op_conversion() ->
+    ?FORALL(Op, dhcp:op(),
+            begin
+                EncDecOp = decode_op(encode_op(Op)),
+                EncDecOp =:= Op
             end).
 
 prop_ip_conversion() ->
@@ -934,13 +948,11 @@ prop_htype_conversion() ->
                 EncDecHType =:= HType
             end).
 
-
 prop_string_conversion() ->
-    ?FORALL(S, list(range(1,255)),
+    ?FORALL(S, null_terminated_string(),
             begin
-                BS = list_to_binary(S),
-                EncDecS = decode_string(encode_string(BS, byte_size(BS) + 2)),
-                EncDecS =:= BS
+                EncDecS = decode_string(encode_string(S, byte_size(S) + 2)),
+                EncDecS =:= S
             end).
 
 prop_package_conversion() ->
