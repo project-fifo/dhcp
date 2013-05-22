@@ -100,6 +100,7 @@ init([Socket, Handler]) ->
 %% @end
 %%--------------------------------------------------------------------
 initial(timeout, State) ->
+    lager:warning("[DHCP] timeout in initial."),
     {stop, normal, State};
 
 initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
@@ -164,6 +165,7 @@ offered(#dhcp_package{}, State) ->
 
 
 bound(timeout, State) ->
+    lager:warning("[DHCP] timeout in bound."),
     {stop, normal, State};
 
 bound(Pkg = #dhcp_package{xid = _XId, message_type = release},
@@ -307,38 +309,12 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
             R = case Reply of
                     #dhcp_package{} ->
                         Reply;
-                    {ack, R0} ->
-                        dhcp_package:set_message_type(ack, R0);
-                    {ack, IP, Mask, R0} ->
-                        R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
-                        dhcp_package:set_message_type(ack, R2);
-                    {ack, IP, Mask, GWInfo, R0} ->
-                        R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
-                        R2 = case GWInfo of
-                                 GW when is_integer(GW) ->
-                                     dhcp_package:set_option({router_address, [GW]}, R1);
-                                 GWs when is_list(GWs) ->
-                                     dhcp_package:set_option({router_address, GWs}, R1)
-                             end,
-                        dhcp_package:set_message_type(ack, R2);
-                    {nack, R0} ->
-                        dhcp_package:set_message_type(nack, R0);
-                    {offer, IP, Mask, R0} ->
-                        R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
-                        dhcp_package:set_message_type(offer, R2);
-                    {offer, IP, Mask, GWInfo, R0} ->
-                        R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
-                        R2 = case GWInfo of
-                                 GW when is_integer(GW) ->
-                                     dhcp_package:set_option({router_address, [GW]}, R1);
-                                 GWs when is_list(GWs) ->
-                                     dhcp_package:set_option({router_address, GWs}, R1)
-                             end,
-                        dhcp_package:set_message_type(offer, R2)
+                    {Op, R0} when Op =:= ack orelse Op =:= nck ->
+                        dhcp_package:set_message_type(Op, R0);
+                    {Op, IP, Mask, R0} when Op =:= offer orelse Op =:= ack ->
+                        set_res(Op, IP, Mask, R0);
+                    {Op, IP, Mask, GWInfo, R0} when Op =:= offer orelse Op =:= ack ->
+                        set_res(Op, IP, Mask, GWInfo, R0)
                 end,
             case dhcp_package:valid_reply(R) of
                 true ->
@@ -354,6 +330,17 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
         E ->
             E
     end.
+
+set_res(Op, IP, Mask, Gw, R0) when is_integer(Gw) ->
+    dhcp_package:set_option({router_address, [Gw]}, set_res(Op, IP, Mask, R0));
+set_res(Op, IP, Mask, Gws, R0) when is_list(Gws) ->
+    dhcp_package:set_option({router_address, Gws}, set_res(Op, IP, Mask, R0)).
+
+set_res(Op, IP, Mask, R0) ->
+    R1 = dhcp_package:set_yiaddr(IP, R0),
+    R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
+    dhcp_package:set_message_type(Op, R2).
+
 
 reply_addr(#dhcp_package{flags = [broadcast]}) ->
     {255,255,255,255};

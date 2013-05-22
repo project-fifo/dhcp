@@ -26,7 +26,7 @@
     {ok, {ack, IP, Netmask, ReplyPkg}, state()} |
     {ok, {ack, IP, Netmask, GW, ReplyPkg}, state()} |
     {ok, {ack, IP, Netmask, [GW], ReplyPkg}, state()} |
-    {ok, {nack, ReplyPkg}, state()} |
+    {ok, {nck, ReplyPkg}, state()} |
     {ok, ReplyPkg, state()} |
     {error, any()} when ReplyPkg::dhcp:package(),
                         RequestPkg::dhcp:package(),

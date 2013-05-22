@@ -37,7 +37,7 @@ A request in reply to the offer, it is already checked if the requested IP is eq
 The funcio has to return:
 * `{ok, ReplyPkg}` where ReplyPkg was filled 'manually'.
 * `{ok, {ack, [IP, Netmask[, GWs]], ReplyPkg}, State}` - where IP and Netmask are IP addresses to offer, GWs can either be omitted, be a single IP or a list of IP's and ReplyPkg is either the original package or has modification as additional options set on it, all fiends but The ReplyPkg are optional.
-* `{ok,{nack,  ReplyPkg}, State}` - The request is denied, details can be set in the ReplyPkg.
+* `{ok, {nck,  ReplyPkg}, State}` - The request is denied, details can be set in the ReplyPkg.
 * `{error, Reason}` - an error that shuts down the related FSM.
 
 ### releas/2
