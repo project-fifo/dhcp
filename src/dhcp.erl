@@ -38,6 +38,8 @@ prop_ip_tpl_conversion() ->
             end).
 
 propper_test() ->
+    ?assertEqual(true, proper:check_spec({dhcp, ip_to_tpl, 1}, [{to_file, user}])),
+    ?assertEqual(true, proper:check_spec({dhcp, tpl_to_ip, 1}, [{to_file, user}])),
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 ip2tpl_test() ->
@@ -49,7 +51,6 @@ tpl2ip_test() ->
     ?assertEqual(16#01020304, tpl_to_ip({1,2,3,4})),
     ?assertEqual(16#00000000, tpl_to_ip({0,0,0,0})),
     ?assertEqual(16#FFFFFFFF, tpl_to_ip({255,255,255,255})).
-
 
 -endif.
 

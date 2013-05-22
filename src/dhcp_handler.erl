@@ -1,7 +1,7 @@
 -module(dhcp_handler).
 
 -type state() :: any().
--type server_id() :: integer().
+-type server_id() :: dhcp:ip().
 
 -callback init()
 	-> {ok, state(), server_id()}.
@@ -12,11 +12,11 @@
     {ok, {offer, IP, Netmask, GW, ReplyPkg}, state()} |
     {ok, {offer, IP, Netmask, [GW], ReplyPkg}, state()} |
     {ok, ReplyPkg, state()} |
-    {error, any()} when ReplyPkg::dhcp_package:package(),
-                        RequestPkg::dhcp_package:package(),
-                        IP::integer(),
-                        Netmask::integer(),
-                        GW::integer().
+    {error, any()} when ReplyPkg::dhcp:package(),
+                        RequestPkg::dhcp:package(),
+                        IP::dhcp:ip(),
+                        Netmask::dhcp:ip(),
+                        GW::dhcp:ip().
 
 
 -callback request(ReplyPkg, RequestPkg, state()) ->
@@ -27,14 +27,12 @@
     {ok, {ack, IP, Netmask, [GW], ReplyPkg}, state()} |
     {ok, {nack, ReplyPkg}, state()} |
     {ok, ReplyPkg, state()} |
-    {error, any()} when ReplyPkg::dhcp_package:package(),
-                        RequestPkg::dhcp_package:package(),
-                        IP::integer(),
-                        Netmask::integer(),
-                        GW::integer().
+    {error, any()} when ReplyPkg::dhcp:package(),
+                        RequestPkg::dhcp:package(),
+                        IP::dhcp:ip(),
+                        Netmask::dhcp:ip(),
+                        GW::dhcp:ip().
 
 -callback release(RequestPkg, state()) ->
     {ok, state()} |
-    {error, any()} when RequestPkg::dhcp_package:package().
-
-
+    {error, any()} when RequestPkg::dhcp:package().

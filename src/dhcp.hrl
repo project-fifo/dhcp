@@ -13,8 +13,6 @@
 -type ip_tpl() :: {byte(), byte(), byte(), byte()}.
 -type dhcp_flags() :: [broadcast] | [].
 
-%-type zts() :: <<X:integer/8>> when X >=1.
-
 -type null_terminated_string() :: binary().
 
 

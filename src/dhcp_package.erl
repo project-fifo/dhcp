@@ -943,42 +943,8 @@ prop_string_conversion() ->
                 EncDecS =:= BS
             end).
 
-null_terminated_string() ->
-    ?LET(S, list(range(1,255)),
-         << <<B:8>> || B <- S>>).
-
-package() ->
-    ?LET({Tag,
-          Op, HType, HLen, Hop,
-          XId,
-          Secs, Flags,
-          Ci, Yi, Si, Gi,
-          Ch,
-          SName,
-          File,
-          Options,
-          MT},
-         {dhcp:op(), dhcp:htype(), byte(), byte(),
-          dhcp:int32(),
-          dhcp:short(), oneof([exactly([]), exactly([broadcast])]),
-          dhcp:ip(), dhcp:ip(), dhcp:ip(), dhcp:ip(), dhcp:mac(),
-          null_terminated_string(),
-          null_terminated_string(),
-          [dhcp:option()],dhcp:message_type()
-         },
-         {dhcp_package, Tag,
-          Op, HType, HLen, Hop,
-          XId,
-          Secs, Flags,
-          Ci, Yi, Si, Gi,
-          Ch,
-          SName,
-          File,
-          Options,
-          MT}).
-
 prop_package_conversion() ->
-    ?FORALL(P, package(),
+    ?FORALL(P, dhcp:package(),
             begin
                 PMt = set_option({message_type, P#dhcp_package.message_type}, P),
                 PMt1 = PMt#dhcp_package{
@@ -997,12 +963,10 @@ prop_package_conversion() ->
             end).
 
 propper_test() ->
-    proper:check_spec({dhcp_package, get_option, 2}, [{to_file, user}]),
-    proper:check_spec({dhcp_package, get_option, 3}, [{to_file, user}]),
-    proper:check_spec({dhcp_package, decode_op, 1}, [{to_file, user}]),
+    proper:check_spec({dhcp_package, get_option, 2}, [{to_file, user}, long_result]),
+    proper:check_spec({dhcp_package, get_option, 3}, [{to_file, user}, long_result]),
 
-
-    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
+    ?assertEqual([], proper:module(?MODULE, [{to_file, user}, long_result])).
 
 str_decode_test() ->
     ?assertEqual(<<"a">>, decode_string(<<"a", 0:8>>)),
