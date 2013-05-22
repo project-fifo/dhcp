@@ -2,6 +2,13 @@
 
 -include("dhcp.hrl").
 
+-opaque package() :: #dhcp_package{}.
+-opaque option() :: dhcp_option().
+-opaque flags() :: dhcp_flags().
+-opaque op() :: dhcp_op().
+
+-export_type([package/0, ip/0, short/0, mac/0, dhcp_op/0, htype/0, int32/0, option/0, flags/0, message_type/0, op/0]).
+
 -ifdef(TEST).
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").

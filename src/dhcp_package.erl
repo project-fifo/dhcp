@@ -7,8 +7,6 @@
 
 -include("dhcp.hrl").
 
--opaque package() :: #dhcp_package{}.
--export_type([package/0]).
 
 -export([decode/1, encode/1, clone/1]).
 
@@ -71,7 +69,7 @@
 %% the message type option.
 %% @end
 %%--------------------------------------------------------------------
--spec decode(binary()) -> {ok, package()} |
+-spec decode(binary()) -> {ok, dhcp:package()} |
                           {error, message_type} |
                           {error, bad_package}.
 
@@ -122,7 +120,7 @@ decode(P) ->
 %% by the message type set via set_message_type.
 %% @end
 %%--------------------------------------------------------------------
--spec encode(package()) -> binary().
+-spec encode(Message::#dhcp_package{}) -> binary().
 encode(#dhcp_package{
           op = Op, htype = HType, hlen = HLen, hops = Hops,
           xid = XId,
@@ -157,7 +155,7 @@ encode(#dhcp_package{
 %% file, options and message_type
 %% @end
 %%--------------------------------------------------------------------
--spec clone(package()) -> package().
+-spec clone(Message::#dhcp_package{}) -> #dhcp_package{}.
 clone(M) ->
     M#dhcp_package{
       hops = 0,
@@ -175,7 +173,7 @@ clone(M) ->
 %% @end
 %%--------------------------------------------------------------------
 
--spec get_option(Option::atom(), Default::term(), package()) -> term().
+-spec get_option(Option::atom(), Default::term(), Message::#dhcp_package{}) -> term().
 get_option(Option, Default, #dhcp_package{options = Options}) ->
     case lists:keyfind(Option, 1, Options) of
         {Option, Value} ->
@@ -190,7 +188,7 @@ get_option(Option, Default, #dhcp_package{options = Options}) ->
 %% otherwised.
 %% @end
 %%--------------------------------------------------------------------
--spec get_option(Option::atom(), package()) -> undefined | term().
+-spec get_option(Option::atom(), Message::#dhcp_package{}) -> undefined | term().
 get_option(Option, Message) ->
     get_option(Option, undefined, Message).
 
@@ -200,7 +198,7 @@ get_option(Option, Message) ->
 %% one.
 %% @end
 %%--------------------------------------------------------------------
--spec set_option(Option::dhcp_option(), Message::package()) -> package().
+-spec set_option(Option::dhcp_option(), Message::#dhcp_package{}) -> #dhcp_package{}.
 set_option(Option = {Key,  _}, Message) ->
     Message#dhcp_package{
       options =
@@ -213,7 +211,7 @@ set_option(Option = {Key,  _}, Message) ->
 %% otherwised.
 %% @end
 %%--------------------------------------------------------------------
--spec ensure_option(Option::dhcp_option(), Message::package()) -> package().
+-spec ensure_option(Option::dhcp_option(), Message::#dhcp_package{}) -> #dhcp_package{}.
 ensure_option(Option = {Key,  _}, Message) ->
     case get_option(Key, Message) of
         undefined ->
@@ -228,7 +226,7 @@ ensure_option(Option = {Key,  _}, Message) ->
 %% replaces.
 %% @end
 %%--------------------------------------------------------------------
--spec merge_options(Options::[dhcp_option()], Message::package()) -> package().
+-spec merge_options(Options::[dhcp_option()], Message::#dhcp_package{}) -> #dhcp_package{}.
 merge_options([], Message) ->
     Message;
 
@@ -240,22 +238,22 @@ merge_options([O|R], Message) ->
 %% Sets a field in the package, only valid datatypes allowd.
 %% @end
 %%--------------------------------------------------------------------
--spec set_field(op, V::dhcp_op(), M::package()) -> package();
-               (htype, V::htype(), M::package()) -> package();
-               (hlen, V::octet(), M::package()) -> package();
-               (hops, V::octet(), M::package()) -> package();
-               (xid, V::int32(), M::package()) -> package();
-               (secs, V::short(), M::package()) -> package();
-               (flags, V::dhcp_flags(), M::package()) -> package();
-               (ciaddr, V::ip(), M::package()) -> package();
-               (yiaddr, V::ip(), M::package()) -> package();
-               (siaddr, V::ip(), M::package()) -> package();
-               (giaddr, V::ip(), M::package()) -> package();
-               (chaddr, V::mac(), M::package()) -> package();
-               (sname, V::null_terminated_string(), M::package()) -> package();
-               (file, V::null_terminated_string(), M::package()) -> package();
-               (options, V::[dhcp_option()], M::package()) -> package();
-               (message_type, V::message_type(), M::package()) -> package().
+-spec set_field(op, V::dhcp_op(), M::#dhcp_package{}) -> #dhcp_package{};
+               (htype, V::htype(), M::#dhcp_package{}) -> #dhcp_package{};
+               (hlen, V::byte(), M::#dhcp_package{}) -> #dhcp_package{};
+               (hops, V::byte(), M::#dhcp_package{}) -> #dhcp_package{};
+               (xid, V::int32(), M::#dhcp_package{}) -> #dhcp_package{};
+               (secs, V::short(), M::#dhcp_package{}) -> #dhcp_package{};
+               (flags, V::dhcp_flags(), M::#dhcp_package{}) -> #dhcp_package{};
+               (ciaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
+               (yiaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
+               (siaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
+               (giaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
+               (chaddr, V::mac(), M::#dhcp_package{}) -> #dhcp_package{};
+               (sname, V::null_terminated_string(), M::#dhcp_package{}) -> #dhcp_package{};
+               (file, V::null_terminated_string(), M::#dhcp_package{}) -> #dhcp_package{};
+               (options, V::[dhcp_option()], M::#dhcp_package{}) -> #dhcp_package{};
+               (message_type, V::message_type(), M::#dhcp_package{}) -> #dhcp_package{}.
 set_field(op, V, M) ->
     set_op(V, M);
 set_field(htype, V, M) ->
@@ -326,22 +324,22 @@ set_options(Options, M) when is_list(Options) ->
 set_message_type(MT, M) when is_atom(MT) ->
     M#dhcp_package{message_type = MT}.
 
--spec get_field(op, M::package()) -> dhcp_op();
-               (htype, M::package()) -> htype();
-               (hlen, M::package()) -> octet();
-               (hops, M::package()) -> octet();
-               (xid, M::package()) -> int32();
-               (secs, M::package()) -> short();
-               (flags, M::package()) -> dhcp_flags();
-               (ciaddr, M::package()) -> ip();
-               (yiaddr, M::package()) -> ip();
-               (siaddr, M::package()) -> ip();
-               (giaddr, M::package()) -> ip();
-               (chaddr, M::package()) -> mac();
-               (sname,  M::package()) -> null_terminated_string();
-               (file, M::package()) -> null_terminated_string();
-               (options, M::package()) -> [dhcp_option()];
-               (message_type, M::package()) -> message_type().
+-spec get_field(op, M::#dhcp_package{}) -> dhcp_op();
+               (htype, M::#dhcp_package{}) -> htype();
+               (hlen, M::#dhcp_package{}) -> byte();
+               (hops, M::#dhcp_package{}) -> byte();
+               (xid, M::#dhcp_package{}) -> int32();
+               (secs, M::#dhcp_package{}) -> short();
+               (flags, M::#dhcp_package{}) -> dhcp_flags();
+               (ciaddr, M::#dhcp_package{}) -> ip();
+               (yiaddr, M::#dhcp_package{}) -> ip();
+               (siaddr, M::#dhcp_package{}) -> ip();
+               (giaddr, M::#dhcp_package{}) -> ip();
+               (chaddr, M::#dhcp_package{}) -> mac();
+               (sname,  M::#dhcp_package{}) -> null_terminated_string();
+               (file, M::#dhcp_package{}) -> null_terminated_string();
+               (options, M::#dhcp_package{}) -> [dhcp_option()];
+               (message_type, M::#dhcp_package{}) -> message_type().
 get_field(op, M) ->
     get_op(M);
 get_field(htype, M) ->
@@ -854,12 +852,7 @@ encode_message_type(Id) ->
 valid_request(#dhcp_package{message_type = discover}) ->
     true;
 valid_request(P = #dhcp_package{message_type = request}) ->
-    case get_option(dhcp_server_identifier, P) of
-        undefined ->
-            false;
-        _ ->
-            true
-    end;
+    get_option(dhcp_server_identifier, P) =/= undefined;
 valid_request(#dhcp_package{message_type = decline}) ->
     true;
 valid_request(#dhcp_package{message_type = release}) ->
@@ -950,6 +943,40 @@ prop_string_conversion() ->
                 EncDecS =:= BS
             end).
 
+null_terminated_string() ->
+    ?LET(S, list(range(1,255)),
+         << <<B:8>> || B <- S>>).
+
+package() ->
+    ?LET({Tag,
+          Op, HType, HLen, Hop,
+          XId,
+          Secs, Flags,
+          Ci, Yi, Si, Gi,
+          Ch,
+          SName,
+          File,
+          Options,
+          MT},
+         {dhcp:op(), dhcp:htype(), byte(), byte(),
+          dhcp:int32(),
+          dhcp:short(), oneof([exactly([]), exactly([broadcast])]),
+          dhcp:ip(), dhcp:ip(), dhcp:ip(), dhcp:ip(), dhcp:mac(),
+          null_terminated_string(),
+          null_terminated_string(),
+          [dhcp:option()],dhcp:message_type()
+         },
+         {dhcp_package, Tag,
+          Op, HType, HLen, Hop,
+          XId,
+          Secs, Flags,
+          Ci, Yi, Si, Gi,
+          Ch,
+          SName,
+          File,
+          Options,
+          MT}).
+
 prop_package_conversion() ->
     ?FORALL(P, package(),
             begin
@@ -970,6 +997,11 @@ prop_package_conversion() ->
             end).
 
 propper_test() ->
+    proper:check_spec({dhcp_package, get_option, 2}, [{to_file, user}]),
+    proper:check_spec({dhcp_package, get_option, 3}, [{to_file, user}]),
+    proper:check_spec({dhcp_package, decode_op, 1}, [{to_file, user}]),
+
+
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 str_decode_test() ->
@@ -1010,4 +1042,3 @@ decode_test() ->
     ?assertEqual(D, D1).
 
 -endif.
-

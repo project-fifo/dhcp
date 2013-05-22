@@ -7,14 +7,14 @@
 -type dhcp_op_id() :: 1..2.
 
 -type int32() :: 0..4294967295.
--type octet() :: 0..255.
 -type short() :: 0..65535.
--type mac() :: {octet(),octet(),octet(),octet(),octet(),octet()}.
+-type mac() :: {byte(),byte(),byte(),byte(),byte(),byte()}.
 -type ip() :: int32().
--type ip_tpl() :: {octet(), octet(), octet(), octet()}.
+-type ip_tpl() :: {byte(), byte(), byte(), byte()}.
 -type dhcp_flags() :: [broadcast] | [].
 
 %-type zts() :: <<X:integer/8>> when X >=1.
+
 -type null_terminated_string() :: binary().
 
 
@@ -181,8 +181,8 @@
 -record(dhcp_package,
         {op = request :: dhcp_op(),
          htype = ethernet :: htype(),
-         hlen = 0 :: octet(),
-         hops = 0 :: octet(),
+         hlen = 0 :: byte(),
+         hops = 0 :: byte(),
          xid = 0 :: int32(),
          secs = 0 :: short(),
          flags = [] :: dhcp_flags(),
@@ -191,8 +191,9 @@
          siaddr = 0 :: ip(),
          giaddr = 0 :: ip(),
          chaddr = {0,0,0,0,0,0} :: mac(),
-         sname = <<>> :: binary(),
-         file = <<>> :: binary(),
+         sname = <<>> :: null_terminated_string(),
+         file = <<>> :: null_terminated_string(),
          options = [] :: [dhcp_option()],
          message_type = ack :: message_type()
         }).
+
