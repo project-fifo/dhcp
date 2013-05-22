@@ -947,7 +947,6 @@ check_option(P, [], [Forbidden | R]) ->
 
 -ifdef(TEST).
 
-
 null_terminated_string() ->
     ?LET(S,
          list(range(1,255)),

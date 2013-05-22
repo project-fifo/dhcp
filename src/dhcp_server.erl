@@ -12,6 +12,13 @@
 
 -include("dhcp.hrl").
 
+-ifdef(TEST).
+-include_lib("proper/include/proper.hrl").
+-include_lib("eunit/include/eunit.hrl").
+-export([match/2, match_pkg/2,
+         match_mac/2, match_fields/2, match_opts/2]).
+-endif.
+
 %% API
 -export([start_link/0, register_handler/2]).
 -ignore_xref([start_link/0, register_handler/2]).
@@ -24,6 +31,16 @@
 -define(TBL, dhcp_sessions).
 
 -record(state, {socket, handlers = []}).
+-type mac_match_byte() :: byte() | '_'.
+-type mac_match() :: '_' | {mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte()}.
+-type field_match() :: {dhcp:package_fields(),
+                        dhcp:op() | dhcp:htype() | byte() | dhcp:int32() |
+                        dhcp:ip() | dhcp:mac() | binary() | dhcp:message_type() |
+                        dhcp:flags()}.
+-type option_match() :: dhcp:option().
+-type match_spec() :: {mac_match(), [field_match()], [option_match()]}.
+
+
 
 %%%===================================================================
 %%% API
@@ -38,8 +55,8 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
-
-register_handler(Handler, Spec) ->
+-spec register_handler(Handler::atom(), Spec::match_spec()) -> ok | {error, _}.
+register_handler(Handler, Spec = {_,_,_}) when is_atom(Handler)->
     gen_server:call(?SERVER, {register, Handler, Spec}).
 
 %%%===================================================================
@@ -179,6 +196,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+-spec match(Pkg::dhcp:package(), [{Handler::atom(), Spec::match_spec()}]) -> {ok, Handler::atom()} | undefined.
 match(Pkg, [{Handler, Spec} | R]) ->
     case match_pkg(Pkg, Spec) of
         true ->
@@ -188,10 +206,14 @@ match(Pkg, [{Handler, Spec} | R]) ->
     end;
 match(_Pkg, []) ->
     undefined.
-match_pkg(Pkg, {Mac}) ->
-    match_mac(dhcp_package:get_chaddr(Pkg), Mac).
 
+-spec match_pkg(Pkg::dhcp:package(), Spec::match_spec()) -> boolean().
+match_pkg(Pkg, {Mac, Fields, Opts}) ->
+    match_mac(dhcp_package:get_chaddr(Pkg), Mac) andalso
+        match_fields(Pkg, Fields) andalso
+        match_opts(Pkg, Opts).
 
+-spec match_mac(dhcp:mac(), mac_match()) -> boolean().
 match_mac({A, B, C, D, E, F}, {A, B, C, D, E, F}) -> true;
 match_mac({A, B, C, D, E, _}, {A, B, C, D, E, '_'}) -> true;
 match_mac({A, B, C, D, _, _}, {A, B, C, D, '_', '_'}) -> true;
@@ -201,3 +223,28 @@ match_mac({A, _, _, _, _, _}, {A, '_', '_', '_', '_', '_'}) -> true;
 match_mac({_, _, _, _, _, _}, {'_', '_', '_', '_', '_', '_'}) -> true;
 match_mac({_, _, _, _, _, _}, '_') -> true;
 match_mac(_,_) -> false.
+
+-spec match_fields(P::dhcp:package(), [field_match()]) ->
+                          boolean().
+match_fields(P, [{F, V} | Fs]) ->
+    (dhcp_package:get_field(F, P) =:= V) andalso
+        match_fields(P, Fs);
+match_fields(_P, []) ->
+    true.
+
+-spec match_opts(P::dhcp:package(), [dhcp:option()]) -> boolean().
+match_opts(P, [{O, V} | Fs]) ->
+    (dhcp_package:get_option(O, P) =:= V) andalso
+        match_fields(P, Fs);
+match_opts(_, []) ->
+    true.
+
+-ifdef(TEST).
+propper_test() ->
+    ?assertEqual(true, proper:check_spec({dhcp_server, match, 2}, [{to_file, user}, long_result])),
+    ?assertEqual(true, proper:check_spec({dhcp_server, match_pkg, 2}, [{to_file, user}, long_result])),
+    ?assertEqual(true, proper:check_spec({dhcp_server, match_mac, 2}, [{to_file, user}, long_result])),
+    ?assertEqual(true, proper:check_spec({dhcp_server, match_fields, 2}, [{to_file, user}, long_result])),
+    ?assertEqual(true, proper:check_spec({dhcp_server, match_opts, 2}, [{to_file, user}, long_result])).
+
+-endif.
