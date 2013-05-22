@@ -29,6 +29,8 @@
          bound/2
         ]).
 
+-ignore_xref([initial/2,offered/2,bound/2,start_link/2]).
+
 -define(SERVER, ?MODULE).
 
 -define(S(S), (1000*S)).

@@ -9,6 +9,7 @@
 
 -export_type([package/0, ip/0, short/0, mac/0, dhcp_op/0, htype/0, int32/0, option/0, flags/0, message_type/0, op/0]).
 
+-ignore_xref([ip_to_tpl/1, tpl_to_ip/1]).
 -ifdef(TEST).
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").

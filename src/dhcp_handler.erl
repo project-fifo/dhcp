@@ -1,5 +1,6 @@
 -module(dhcp_handler).
 
+-ignore_xref([behaviour_info/1]).
 -type state() :: any().
 -type server_id() :: dhcp:ip().
 
