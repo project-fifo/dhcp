@@ -1,6 +1,7 @@
 -module(dhcp_package).
 
 -ifdef(TEST).
+-include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
@@ -369,7 +370,7 @@ decode_flags(<<0:1/integer, _:15>>) ->
 
 encode_flags([]) ->
     <<0:16/integer>>;
-encode_flags([broadcast]) ->
+encode_flags([broadcast|_]) ->
     <<1:1/integer, 0:15/integer>>.
 
 decode_ip(IP) ->
@@ -604,13 +605,13 @@ decode_option(Opt) ->
 option_type(Opt) ->
     opt(type, Opt).
 
-decode_type(integer, <<L:8, I:L/integer-unit:8, R/binary>>) when  L > 1 ->
+decode_type(integer, <<L:8, I:L/integer-unit:8, R/binary>>) when  L >= 1 ->
     {I, R};
-decode_type(octets, <<L:8, I:L/binary, R/binary>>) when  L > 1 ->
+decode_type(octets, <<L:8, I:L/binary, R/binary>>) when  L >= 0 ->
     {I, R};
 decode_type(ipaddr, <<4:8, IP:32, R/binary>>) ->
     {IP, R};
-decode_type(ipaddrs, <<L:8, IPs:L/binary, R/binary>>) when L > 4,
+decode_type(ipaddrs, <<L:8, IPs:L/binary, R/binary>>) when L >= 4,
                                                            L rem 4 =:= 0->
     {[IP || <<IP:32>> <= IPs], R};
 decode_type(byte, <<1:8, B:8, R/binary>>) ->
@@ -619,10 +620,10 @@ decode_type(bytes, <<L:8, Bs:L/binary, R/binary>>) ->
     {[B || <<B:8>> <= Bs], R};
 decode_type(short, <<2:8, S:16, R/binary>>) ->
     {S, R};
-decode_type(shorts, <<L:8, Ss:L/binary, R/binary>>) when L > 2,
+decode_type(shorts, <<L:8, Ss:L/binary, R/binary>>) when L >= 2,
                                                          L rem 2 =:= 0->
     {[S || <<S:16>> <= Ss], R};
-decode_type(string, <<L:8, S:L/binary, R/binary>>) when  L > 1 ->
+decode_type(string, <<L:8, S:L/binary, R/binary>>) when  L >= 0 ->
     {S, R};
 decode_type(message_type, <<1:8, T:8, R/binary>>) ->
     {decode_message_type(T), R}.
@@ -662,7 +663,7 @@ encode_type(shorts, Ss) when is_list(Ss) ->
 encode_type(string, S) when is_binary(S) ->
     case byte_size(S) of
         L when L =< 255,
-               L >= 1 ->
+               L >= 0 ->
             <<L:8, S/binary>>
     end;
 encode_type(message_type, Type) ->
@@ -795,6 +796,66 @@ check_option(P, [], [Forbidden | R]) ->
 
 
 -ifdef(TEST).
+
+
+prop_mac_conversion() ->
+    ?FORALL(Mac, mac(),
+            begin
+                EncDecMac = decode_mac(encode_mac(Mac)),
+                EncDecMac =:= Mac
+            end).
+
+prop_ip_conversion() ->
+    ?FORALL(IP, ip(),
+            begin
+                EncDecIP = decode_ip(encode_ip(IP)),
+                EncDecIP =:= IP
+            end).
+
+prop_mt_conversion() ->
+    ?FORALL(MT, message_type(),
+            begin
+                EncDecMT = decode_message_type(encode_message_type(MT)),
+                EncDecMT =:= MT
+            end).
+
+prop_htype_conversion() ->
+    ?FORALL(HType, htype(),
+            begin
+                EncDecHType = decode_htype(encode_htype(HType)),
+                EncDecHType =:= HType
+            end).
+
+
+prop_string_conversion() ->
+    ?FORALL(S, list(range(1,255)),
+            begin
+                BS = list_to_binary(S),
+                EncDecS = decode_string(encode_string(BS, byte_size(BS) + 2)),
+                EncDecS =:= BS
+            end).
+
+prop_package_conversion() ->
+    ?FORALL(P, package(),
+            begin
+                PMt = set_option(message_type, P#dhcp_package.message_type, P),
+                PMt1 = PMt#dhcp_package{
+                         %% We need make sure options is sorted for compairison
+                         options = lists:sort(PMt#dhcp_package.options),
+                         %% We need to work around the fact that there is no notation for
+                         %% lists with a exact number of elements
+                         flags = ordsets:from_list(PMt#dhcp_package.flags),
+                         %% There is no way to notate binarys that do not contain 0's
+                         %% So we eliminate them and test the conversion sepperately
+                         sname = <<>>,
+                         file = <<>>},
+                {ok, EncP} = encode(PMt1),
+                {ok, EncDecP} = decode(EncP),
+                EncDecP =:= PMt1
+            end).
+
+propper_test() ->
+    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 str_decode_test() ->
     ?assertEqual(<<"a">>, decode_string(<<"a", 0:8>>)),

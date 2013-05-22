@@ -33,7 +33,7 @@ xref:
 	$(REBAR) xref skip_deps=true
 
 console: all
-	erl -pa ebin deps/*/ebin -s dhcp -config standalone.config
+	erl -pa ebin deps/*/ebin 
 
 
 ##
