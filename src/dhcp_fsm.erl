@@ -292,8 +292,8 @@ delegate(F, Pkg, State) ->
     delegate(F, Pkg, [], State).
 
 delegate(F, Pkg, Opts, State = #state{handler = M}) ->
-    RPkg = lists:foldl(fun({K, V}, P) ->
-                               dhcp_package:set_option(K, V, P)
+    RPkg = lists:foldl(fun(O, P) ->
+                               dhcp_package:set_option(O, P)
                        end, dhcp_package:clone(Pkg), [{dhcp_server_identifier, State#state.server_identifier} | Opts]),
     RPkg1 = dhcp_package:set_op(reply, RPkg),
     case  M:F(RPkg1, Pkg, State#state.handler_state) of
@@ -305,32 +305,32 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                         dhcp_package:set_message_type(ack, R0);
                     {ack, IP, Mask, R0} ->
                         R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
                         dhcp_package:set_message_type(ack, R2);
                     {ack, IP, Mask, GWInfo, R0} ->
                         R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
                         R2 = case GWInfo of
                                  GW when is_integer(GW) ->
-                                     dhcp_package:set_option(router_address, [GW], R1);
+                                     dhcp_package:set_option({router_address, [GW]}, R1);
                                  GWs when is_list(GWs) ->
-                                     dhcp_package:set_option(router_address, GWs, R1)
+                                     dhcp_package:set_option({router_address, GWs}, R1)
                              end,
                         dhcp_package:set_message_type(ack, R2);
                     {nack, R0} ->
                         dhcp_package:set_message_type(nack, R0);
                     {offer, IP, Mask, R0} ->
                         R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
                         dhcp_package:set_message_type(offer, R2);
                     {offer, IP, Mask, GWInfo, R0} ->
                         R1 = dhcp_package:set_yiaddr(IP, R0),
-                        R2 = dhcp_package:set_option(subnet_mask, Mask, R1),
+                        R2 = dhcp_package:set_option({subnet_mask, Mask}, R1),
                         R2 = case GWInfo of
                                  GW when is_integer(GW) ->
-                                     dhcp_package:set_option(router_address, [GW], R1);
+                                     dhcp_package:set_option({router_address, [GW]}, R1);
                                  GWs when is_list(GWs) ->
-                                     dhcp_package:set_option(router_address, GWs, R1)
+                                     dhcp_package:set_option({router_address, GWs}, R1)
                              end,
                         dhcp_package:set_message_type(offer, R2)
                 end,

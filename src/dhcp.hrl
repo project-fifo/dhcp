@@ -2,14 +2,17 @@
         discover | offer | request | decline |
         ack | nck | release | inform | force_renew.
 
--type dhcp_op() :: request | reply.
 
+-type dhcp_op() :: request | reply.
+-type dhcp_op_id() :: 1..2.
+
+-type int32() :: 0..4294967295.
 -type octet() :: 0..255.
 -type short() :: 0..65535.
 -type mac() :: {octet(),octet(),octet(),octet(),octet(),octet()}.
--type ip() :: pos_integer().
+-type ip() :: int32().
 -type ip_tpl() :: {octet(), octet(), octet(), octet()}.
--type flags() :: [broadcast] | [].
+-type dhcp_flags() :: [broadcast] | [].
 
 %-type zts() :: <<X:integer/8>> when X >=1.
 -type null_terminated_string() :: binary().
@@ -49,8 +52,10 @@
                  infiniband |
                  cai_tia_102.
 
+-type htype_id() :: 1..33.
+
 -type dhcp_option() :: {subnet_mask, ip()} |
-                       {time_offset, pos_integer()} |
+                       {time_offset, int32()} |
                        {router_address, [ip(),...]} |
                        {time_server, [ip(),...]} |
                        {ien_116_name_server, [ip(),...]} |
@@ -72,7 +77,7 @@
                        {policy_filter, binary()} |
                        {max_datagram_reassembly_sz, short()} |
                        {default_ip_ttl, binary()} |
-                       {path_mtu_aging_timeout, pos_integer()} |
+                       {path_mtu_aging_timeout, int32()} |
                        {path_mtu_plateau_table, [short(), ...]} |
                        {interface_mtu_size, short()} |
                        {all_subnets_are_local, byte()} |
@@ -83,10 +88,10 @@
                        {router_solicitation_address, ip()} |
                        {static_routes, [ip(),...]} |
                        {trailer_encapsulation, byte()} |
-                       {arp_cache_timeout, pos_integer()} |
+                       {arp_cache_timeout, int32()} |
                        {ethernet_encapsulation, byte()} |
                        {default_tcp_ttl, byte()} |
-                       {keep_alive_interval, pos_integer()} |
+                       {keep_alive_interval, int32()} |
                        {keep_alive_garbage, byte()} |
                        {nis_domain_name, binary()} |
                        {nis_servers, [ip(),...]} |
@@ -99,15 +104,15 @@
                        {x_window_font_server, [ip(),...]} |
                        {x_window_display_mgr, [ip(),...]} |
                        {requested_ip_address, ip()} |
-                       {ip_address_lease_time, pos_integer()} |
+                       {ip_address_lease_time, int32()} |
                        {overload, byte()} |
                        {message_type, message_type()} |
                        {dhcp_server_identifier, ip()} |
                        {parameter_request_list, [byte(), ...]} |
                        {dhcp_error_message, binary()} |
                        {dhcp_maximum_msg_size, short()} |
-                       {renewal_time, pos_integer()} |
-                       {rebinding_time, pos_integer()} |
+                       {renewal_time, int32()} |
+                       {rebinding_time, int32()} |
                        {vendor_class_identifier, binary()} |
                        {client_identifier, binary()} |
                        {netware_domain_name, binary()} |
@@ -166,14 +171,21 @@
                        {http_proxy, binary()} |
                        {cisco_tftp_server_ip_addresses, [ip(),...]}.
 
+-type package_fields() :: op | htype | hlen | hops |
+                          xid |
+                          secs | flags |
+                          ciaddr | yiaddr | siaddr  | giaddr |
+                          chaddr | sname | file |
+                          options |
+                          message_type.
 -record(dhcp_package,
         {op = request :: dhcp_op(),
          htype = ethernet :: htype(),
          hlen = 0 :: octet(),
          hops = 0 :: octet(),
-         xid = 0 :: octet(),
-         secs = 0 :: octet(),
-         flags = [] :: flags(),
+         xid = 0 :: int32(),
+         secs = 0 :: short(),
+         flags = [] :: dhcp_flags(),
          ciaddr = 0 :: ip(),
          yiaddr = 0 :: ip(),
          siaddr = 0 :: ip(),

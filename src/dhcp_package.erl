@@ -14,8 +14,8 @@
 
 -export([valid_reply/1, valid_request/1]).
 
--export([set_option/3,
-         ensure_option/3,
+-export([set_option/2,
+         ensure_option/2,
          merge_options/2,
          set_field/3,
          set_op/2,
@@ -54,6 +54,26 @@
          get_file/1,
          get_options/1,
          get_message_type/1]).
+
+
+
+-define(IS_BYTE(V), is_integer(V), V >= 0, V =< 255).
+-define(IS_SHORT(V), is_integer(V), V >= 0, V =< 16#FFFF).
+-define(IS_INT(V), is_integer(V), V >= 0, V =< 16#FFFFFFFF).
+
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Decodes a binary DHCP pacage, this also checks for the presence of
+%% the message type option.
+%% @end
+%%--------------------------------------------------------------------
+-spec decode(binary()) -> {ok, package()} |
+                          {error, message_type} |
+                          {error, bad_package}.
 
 decode(<<Op:8/unsigned-integer, HType:8/unsigned-integer, HLen:8/unsigned-integer, Hops:8/unsigned-integer,
          XId:32/unsigned-integer,
@@ -95,6 +115,14 @@ decode(P) ->
     lager:error("[DHCP] Bad package: ~p", [P]),
     {error, bad_package}.
 
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Encodes a DHCP pacage. The message_type option will be overwritten
+%% by the message type set via set_message_type.
+%% @end
+%%--------------------------------------------------------------------
+-spec encode(package()) -> binary().
 encode(#dhcp_package{
           op = Op, htype = HType, hlen = HLen, hops = Hops,
           xid = XId,
@@ -123,6 +151,13 @@ encode(#dhcp_package{
            (encode_string(File, 128)):128/binary,
            (encode_options(Options1))/binary>>}.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Clones a dhcp package, whiping the settings for hops, flags, sname,
+%% file, options and message_type
+%% @end
+%%--------------------------------------------------------------------
+-spec clone(package()) -> package().
 clone(M) ->
     M#dhcp_package{
       hops = 0,
@@ -133,63 +168,14 @@ clone(M) ->
       message_type = undefined
      }.
 
--define(OP(Id, Atom),
-        op(decode, Id) ->
-               Atom;
-            op(encode, Atom) ->
-               Id).
-?OP(1, request);
-?OP(2, reply).
+%%--------------------------------------------------------------------
+%% @doc
+%% Reads a dhcp option returns the value when found or the default
+%% otherwise.
+%% @end
+%%--------------------------------------------------------------------
 
-decode_op(ID) ->
-    op(decode, ID).
-
-encode_op(Atom) ->
-    op(encode, Atom).
-
--define(HTYPE(Atom, Id),
-        htype(decode, Id) ->
-               Atom;
-            htype(encode, Atom) ->
-               Id).
-
-?HTYPE(ethernet,               1);
-?HTYPE(experiemental_ethernet, 2);
-?HTYPE(ax25,                   3);
-?HTYPE(proteon_token_ring,     4);
-?HTYPE(chaos,                  5);
-?HTYPE(ieee802,                6);
-?HTYPE(arcnet,                 7);
-?HTYPE(hyperchannel,           8);
-?HTYPE(lanstar,                9);
-?HTYPE(autonet_short_address, 10);
-?HTYPE(localtalk,             11);
-?HTYPE(localnet,              12);
-?HTYPE(ultra_link,            13);
-?HTYPE(smds,                  14);
-?HTYPE(frame_relay,           15);
-?HTYPE(atm16,                 16);
-?HTYPE(hdlc,                  17);
-?HTYPE(fibre_channel,         18);
-?HTYPE(atm19,                 19);
-?HTYPE(serial_line,           20);
-?HTYPE(atm21,                 21);
-?HTYPE(mil_std_188_220,       22);
-?HTYPE(metricom,              23);
-?HTYPE(ieee1394,              24);
-?HTYPE(mapos,                 25);
-?HTYPE(twinaxial,             26);
-?HTYPE(eui64,                 27);
-?HTYPE(hiparp,                28);
-?HTYPE(ip_over_iso_7816_3,    29);
-?HTYPE(arpsec,                30);
-?HTYPE(ipsec_tunnel,          31);
-?HTYPE(infiniband,            32);
-?HTYPE(cai_tia_102,           33).
-
-get_option(Option, Message) ->
-    get_option(Option, undefined, Message).
-
+-spec get_option(Option::atom(), Default::term(), package()) -> term().
 get_option(Option, Default, #dhcp_package{options = Options}) ->
     case lists:keyfind(Option, 1, Options) of
         {Option, Value} ->
@@ -198,25 +184,78 @@ get_option(Option, Default, #dhcp_package{options = Options}) ->
             Default
     end.
 
-set_option(Key, Value, Message) ->
+%%--------------------------------------------------------------------
+%% @doc
+%% Reads a dhcp option returns the value when found or undefine
+%% otherwised.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_option(Option::atom(), package()) -> undefined | term().
+get_option(Option, Message) ->
+    get_option(Option, undefined, Message).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Sets a option to the given value, overwriting any priviousely set
+%% one.
+%% @end
+%%--------------------------------------------------------------------
+-spec set_option(Option::dhcp_option(), Message::package()) -> package().
+set_option(Option = {Key,  _}, Message) ->
     Message#dhcp_package{
       options =
-          lists:keystore(Key, 1, Message#dhcp_package.options, {Key, Value})}.
+          lists:keystore(Key, 1, Message#dhcp_package.options, Option)}.
 
-ensure_option(Key, Value, Message) ->
+%%--------------------------------------------------------------------
+%% @doc
+%% Ensures that a option is set, if it is already present it remains
+%% unchanged otherwise it's set to the value given.
+%% otherwised.
+%% @end
+%%--------------------------------------------------------------------
+-spec ensure_option(Option::dhcp_option(), Message::package()) -> package().
+ensure_option(Option = {Key,  _}, Message) ->
     case get_option(Key, Message) of
         undefined ->
-            set_option(Key, Value, Message);
+            set_option(Option, Message);
         _ ->
             Message
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Merges the options of a package with new ones, existing values are
+%% replaces.
+%% @end
+%%--------------------------------------------------------------------
+-spec merge_options(Options::[dhcp_option()], Message::package()) -> package().
 merge_options([], Message) ->
     Message;
 
-merge_options([{K, V}|R], Message) ->
-    merge_options(R, set_option(K, V, Message)).
+merge_options([O|R], Message) ->
+    merge_options(R, set_option(O, Message)).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Sets a field in the package, only valid datatypes allowd.
+%% @end
+%%--------------------------------------------------------------------
+-spec set_field(op, V::dhcp_op(), M::package()) -> package();
+               (htype, V::htype(), M::package()) -> package();
+               (hlen, V::octet(), M::package()) -> package();
+               (hops, V::octet(), M::package()) -> package();
+               (xid, V::int32(), M::package()) -> package();
+               (secs, V::short(), M::package()) -> package();
+               (flags, V::dhcp_flags(), M::package()) -> package();
+               (ciaddr, V::ip(), M::package()) -> package();
+               (yiaddr, V::ip(), M::package()) -> package();
+               (siaddr, V::ip(), M::package()) -> package();
+               (giaddr, V::ip(), M::package()) -> package();
+               (chaddr, V::mac(), M::package()) -> package();
+               (sname, V::null_terminated_string(), M::package()) -> package();
+               (file, V::null_terminated_string(), M::package()) -> package();
+               (options, V::[dhcp_option()], M::package()) -> package();
+               (message_type, V::message_type(), M::package()) -> package().
 set_field(op, V, M) ->
     set_op(V, M);
 set_field(htype, V, M) ->
@@ -249,10 +288,6 @@ set_field(options, V, M) ->
     set_options(V, M);
 set_field(message_type, V, M) ->
     set_message_type(V, M).
-
--define(IS_BYTE(V), is_integer(V), V >= 0, V =< 255).
--define(IS_SHORT(V), is_integer(V), V >= 0, V =< 16#FFFF).
--define(IS_INT(V), is_integer(V), V >= 0, V =< 16#FFFFFFFF).
 
 set_op(Op = request, M) ->
     M#dhcp_package{op = Op};
@@ -291,6 +326,22 @@ set_options(Options, M) when is_list(Options) ->
 set_message_type(MT, M) when is_atom(MT) ->
     M#dhcp_package{message_type = MT}.
 
+-spec get_field(op, M::package()) -> dhcp_op();
+               (htype, M::package()) -> htype();
+               (hlen, M::package()) -> octet();
+               (hops, M::package()) -> octet();
+               (xid, M::package()) -> int32();
+               (secs, M::package()) -> short();
+               (flags, M::package()) -> dhcp_flags();
+               (ciaddr, M::package()) -> ip();
+               (yiaddr, M::package()) -> ip();
+               (siaddr, M::package()) -> ip();
+               (giaddr, M::package()) -> ip();
+               (chaddr, M::package()) -> mac();
+               (sname,  M::package()) -> null_terminated_string();
+               (file, M::package()) -> null_terminated_string();
+               (options, M::package()) -> [dhcp_option()];
+               (message_type, M::package()) -> message_type().
 get_field(op, M) ->
     get_op(M);
 get_field(htype, M) ->
@@ -357,11 +408,75 @@ get_options(M) ->
 get_message_type(M) ->
     M#dhcp_package.message_type.
 
-decode_htype(T) ->
-    htype(decode, T).
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 
-encode_htype(T) ->
-    htype(encode, T).
+-define(OP(Id, Atom),
+        op(decode, Id) ->
+               Atom;
+            op(encode, Atom) ->
+               Id).
+?OP(1, request);
+?OP(2, reply).
+
+-spec decode_op(ID::dhcp_op_id()) -> OP::dhcp_op().
+decode_op(ID) ->
+    op(decode, ID).
+
+-spec encode_op(OP::dhcp_op()) -> ID::dhcp_op_id().
+encode_op(Atom) ->
+    op(encode, Atom).
+
+
+
+-define(HTYPE(Atom, Id),
+        htype(decode, Id) ->
+               Atom;
+            htype(encode, Atom) ->
+               Id).
+
+?HTYPE(ethernet,               1);
+?HTYPE(experiemental_ethernet, 2);
+?HTYPE(ax25,                   3);
+?HTYPE(proteon_token_ring,     4);
+?HTYPE(chaos,                  5);
+?HTYPE(ieee802,                6);
+?HTYPE(arcnet,                 7);
+?HTYPE(hyperchannel,           8);
+?HTYPE(lanstar,                9);
+?HTYPE(autonet_short_address, 10);
+?HTYPE(localtalk,             11);
+?HTYPE(localnet,              12);
+?HTYPE(ultra_link,            13);
+?HTYPE(smds,                  14);
+?HTYPE(frame_relay,           15);
+?HTYPE(atm16,                 16);
+?HTYPE(hdlc,                  17);
+?HTYPE(fibre_channel,         18);
+?HTYPE(atm19,                 19);
+?HTYPE(serial_line,           20);
+?HTYPE(atm21,                 21);
+?HTYPE(mil_std_188_220,       22);
+?HTYPE(metricom,              23);
+?HTYPE(ieee1394,              24);
+?HTYPE(mapos,                 25);
+?HTYPE(twinaxial,             26);
+?HTYPE(eui64,                 27);
+?HTYPE(hiparp,                28);
+?HTYPE(ip_over_iso_7816_3,    29);
+?HTYPE(arpsec,                30);
+?HTYPE(ipsec_tunnel,          31);
+?HTYPE(infiniband,            32);
+?HTYPE(cai_tia_102,           33).
+
+-spec decode_htype(ID::htype_id()) -> HType::htype().
+decode_htype(ID) ->
+    htype(decode, ID).
+
+-spec encode_htype(HType::htype()) -> ID::htype_id().
+encode_htype(HType) ->
+    htype(encode, HType).
 
 decode_flags(<<1:1/integer, _:15>>) ->
     [broadcast];
@@ -838,7 +953,7 @@ prop_string_conversion() ->
 prop_package_conversion() ->
     ?FORALL(P, package(),
             begin
-                PMt = set_option(message_type, P#dhcp_package.message_type, P),
+                PMt = set_option({message_type, P#dhcp_package.message_type}, P),
                 PMt1 = PMt#dhcp_package{
                          %% We need make sure options is sorted for compairison
                          options = lists:sort(PMt#dhcp_package.options),
