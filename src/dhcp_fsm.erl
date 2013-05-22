@@ -157,7 +157,11 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
     end;
 
 offered(#dhcp_package{xid = _XId, message_type = decline}, State = #state{xid = _XId}) ->
-    {stop, normal, State}.
+    {stop, normal, State};
+
+offered(#dhcp_package{}, State) ->
+    {next_state, offered, State, ?S(10)}.
+
 
 bound(timeout, State) ->
     {stop, normal, State};
