@@ -41,7 +41,11 @@
                 handler_state,
                 socket,
                 server_identifier,
-                yiaddr}).
+                yiaddr,
+                initial_timeout = 10,
+                offer_timeout = 10,
+                request_timeout = 30
+               }).
 
 %%%===================================================================
 %%% API
@@ -78,10 +82,16 @@ start_link(Socket, Handler) ->
 %%--------------------------------------------------------------------
 init([Socket, Handler]) ->
     {ok, HandlerState, ServerIdentifier} = Handler:init(),
+    {ok, Ti} = application:get_env(initial_timeout),
+    {ok, To} = application:get_env(offer_timeout),
+    {ok, Tr} = application:get_env(request_timeout),
     {ok, initial, #state{handler = Handler,
                          handler_state = HandlerState,
                          socket = Socket,
                          server_identifier = ServerIdentifier,
+                         initial_timeout = Ti,
+                         offer_timeout = To,
+                         request_timeout = Tr,
                          last = erlang:now()}, ?S(10)}.
 
 %%--------------------------------------------------------------------
@@ -103,20 +113,23 @@ initial(timeout, State) ->
     lager:warning("[DHCP] timeout in initial."),
     {stop, normal, State};
 
-initial(Pkg = #dhcp_package{xid = XId, message_type = discover}, State) ->
+initial(Pkg = #dhcp_package{xid = XId, message_type = discover},
+        State = #state{initial_timeout = Ti,
+                       offer_timeout = To}) ->
     case delegate(discover, Pkg,
                   [{ip_address_lease_time, 3000}], State) of
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
-            {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(10)};
+            {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(To)};
         {ok, State1} ->
-            {next_state, initial, State1, ?S(10)};
+            {next_state, initial, State1, ?S(Ti)};
         E ->
             lager:warning("[DHCP] callback module returned ~p", [E]),
-            {next_state, initial, State#state{xid = XId}, ?S(10)}
+            {next_state, initial, State#state{xid = XId}, ?S(Ti)}
     end;
 
-initial(Pkg = #dhcp_package{message_type = request}, State) ->
+initial(Pkg = #dhcp_package{message_type = request},
+        State = #state{initial_timeout = Ti}) ->
     case delegate(request, Pkg,
                   [{ip_address_lease_time, 3000}], State) of
         {ok, RPkg, State1} ->
@@ -124,10 +137,10 @@ initial(Pkg = #dhcp_package{message_type = request}, State) ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, bound, State1#state{yiaddr = YiAddr}, ?S(Timeout)};
         {ok, State1} ->
-            {next_state, initial, State1, ?S(10)};
+            {next_state, initial, State1, ?S(Ti)};
         E ->
             lager:warning("[DHCP] callback module returned ~p", [E]),
-            {next_state, initial, State, ?S(10)}
+            {next_state, initial, State, ?S(Ti)}
     end.
 
 offered(timeout, State) ->
@@ -135,7 +148,8 @@ offered(timeout, State) ->
     {stop, normal, State};
 
 offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
-        State = #state{xid = _XId, server_identifier = Si, yiaddr = YiAddr}) ->
+        State = #state{xid = _XId, server_identifier = Si, yiaddr = YiAddr,
+                       offer_timeout = To}) ->
     case {dhcp_package:get_option(dhcp_server_identifier, Pkg),
           dhcp_package:get_option(requested_ip_address, Pkg)} of
         {Si, YiAddr} ->
@@ -146,7 +160,7 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
                                                     handler_state = State1}, ?S(Timeout)};
                 {ok, State1} ->
                     {next_state, offered, State#state{last=erlang:now(),
-                                                      handler_state = State1}, ?S(10)};
+                                                      handler_state = State1}, ?S(To)};
                 _ ->
                     {stop, normal, State}
             end;
@@ -160,8 +174,8 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
 offered(#dhcp_package{xid = _XId, message_type = decline}, State = #state{xid = _XId}) ->
     {stop, normal, State};
 
-offered(#dhcp_package{}, State) ->
-    {next_state, offered, State, ?S(10)}.
+offered(#dhcp_package{}, State = #state{offer_timeout = To}) ->
+    {next_state, offered, State, ?S(To)}.
 
 
 bound(timeout, State) ->

@@ -1,6 +1,6 @@
 {application, dhcp,
  [
-  {description, ""},
+  {description, "dhcp server implemetnation"},
   {vsn, "0.1.0"},
   {registered, []},
   {applications, [
@@ -8,6 +8,10 @@
                   lager,
                   stdlib
                  ]},
-  {mod, { dhcp_app, []}},
-  {env, []}
+  {mod, {dhcp_app, []}},
+  {env, [
+         {initial_timeout, 10},
+         {offer_timeout, 10},
+         {request_timeout, 30}
+        ]}
  ]}.

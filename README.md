@@ -44,3 +44,8 @@ The funcion has to return:
 Only for informative reasons, the function does not have to return a package, it is passed it's state and the release package and can return either:
 * `{ok, State}` - return normall.
 * `{error, Reason}` - an error that shuts down the related FSM.
+
+## Configuration
+There are three configuration options that can adjust the behavior of the FSM, namely the timeouts.
+* initial_timeout - the timeout in seconds until the FSM quits when no initial discover or request is received.
+* offer_timeout - the timeout in seconds before a offer has to be accepted or declined.
