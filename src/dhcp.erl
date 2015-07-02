@@ -11,7 +11,6 @@
 
 -ignore_xref([ip_to_tpl/1, tpl_to_ip/1]).
 -ifdef(TEST).
--include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
@@ -30,18 +29,6 @@ tpl_to_ip({A, B, C, D}) ->
     I.
 
 -ifdef(TEST).
-
-prop_ip_tpl_conversion() ->
-    ?FORALL(Tpl, ip_tpl(),
-            begin
-                EncDecTpl = ip_to_tpl(tpl_to_ip(Tpl)),
-                EncDecTpl =:= Tpl
-            end).
-
-propper_test() ->
-    ?assertEqual(true, proper:check_spec({dhcp, ip_to_tpl, 1}, [{to_file, user}])),
-    ?assertEqual(true, proper:check_spec({dhcp, tpl_to_ip, 1}, [{to_file, user}])),
-    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 ip2tpl_test() ->
     ?assertEqual({1,2,3,4}, ip_to_tpl(16#01020304)),

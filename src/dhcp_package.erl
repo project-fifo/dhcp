@@ -1,10 +1,8 @@
 -module(dhcp_package).
 
 -ifdef(TEST).
--include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
--export([decode_htype/1, encode_htype/1,
-         decode_op/1, encode_op/1]).
+-compile(export_all).
 -endif.
 
 -include("dhcp.hrl").
@@ -947,77 +945,6 @@ check_option(P, [], [Forbidden | R]) ->
 
 -ifdef(TEST).
 
-null_terminated_string() ->
-    ?LET(S,
-         list(range(1,255)),
-         list_to_binary(S)).
-
-prop_mac_conversion() ->
-    ?FORALL(Mac, mac(),
-            begin
-                EncDecMac = decode_mac(encode_mac(Mac)),
-                EncDecMac =:= Mac
-            end).
-
-prop_op_conversion() ->
-    ?FORALL(Op, dhcp:op(),
-            begin
-                EncDecOp = decode_op(encode_op(Op)),
-                EncDecOp =:= Op
-            end).
-
-prop_ip_conversion() ->
-    ?FORALL(IP, ip(),
-            begin
-                EncDecIP = decode_ip(encode_ip(IP)),
-                EncDecIP =:= IP
-            end).
-
-prop_mt_conversion() ->
-    ?FORALL(MT, message_type(),
-            begin
-                EncDecMT = decode_message_type(encode_message_type(MT)),
-                EncDecMT =:= MT
-            end).
-
-prop_htype_conversion() ->
-    ?FORALL(HType, htype(),
-            begin
-                EncDecHType = decode_htype(encode_htype(HType)),
-                EncDecHType =:= HType
-            end).
-
-prop_string_conversion() ->
-    ?FORALL(S, null_terminated_string(),
-            begin
-                EncDecS = decode_string(encode_string(S, byte_size(S) + 2)),
-                EncDecS =:= S
-            end).
-
-prop_package_conversion() ->
-    ?FORALL(P, dhcp:package(),
-            begin
-                PMt = set_option({message_type, P#dhcp_package.message_type}, P),
-                PMt1 = PMt#dhcp_package{
-                         %% We need make sure options is sorted for compairison
-                         options = lists:sort(PMt#dhcp_package.options),
-                         %% We need to work around the fact that there is no notation for
-                         %% lists with a exact number of elements
-                         flags = ordsets:from_list(PMt#dhcp_package.flags),
-                         %% There is no way to notate binarys that do not contain 0's
-                         %% So we eliminate them and test the conversion sepperately
-                         sname = <<>>,
-                         file = <<>>},
-                {ok, EncP} = encode(PMt1),
-                {ok, EncDecP} = decode(EncP),
-                EncDecP =:= PMt1
-            end).
-
-propper_test() ->
-    proper:check_spec({dhcp_package, get_option, 2}, [{to_file, user}, long_result]),
-    proper:check_spec({dhcp_package, get_option, 3}, [{to_file, user}, long_result]),
-
-    ?assertEqual([], proper:module(?MODULE, [{to_file, user}, long_result])).
 
 str_decode_test() ->
     ?assertEqual(<<"a">>, decode_string(<<"a", 0:8>>)),

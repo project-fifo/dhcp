@@ -13,7 +13,6 @@
 -include("dhcp.hrl").
 
 -ifdef(TEST).
--include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -export([match/2, match_pkg/2,
          match_mac/2, match_fields/2, match_opts/2]).
@@ -238,13 +237,3 @@ match_opts(P, [{O, V} | Fs]) ->
         match_fields(P, Fs);
 match_opts(_, []) ->
     true.
-
--ifdef(TEST).
-propper_test() ->
-    ?assertEqual(true, proper:check_spec({dhcp_server, match, 2}, [{to_file, user}, long_result])),
-    ?assertEqual(true, proper:check_spec({dhcp_server, match_pkg, 2}, [{to_file, user}, long_result])),
-    ?assertEqual(true, proper:check_spec({dhcp_server, match_mac, 2}, [{to_file, user}, long_result])),
-    ?assertEqual(true, proper:check_spec({dhcp_server, match_fields, 2}, [{to_file, user}, long_result])),
-    ?assertEqual(true, proper:check_spec({dhcp_server, match_opts, 2}, [{to_file, user}, long_result])).
-
--endif.
