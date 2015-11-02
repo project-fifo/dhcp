@@ -40,9 +40,9 @@ The funcion has to return:
 * `{ok, {nck,  ReplyPkg}, State}` - The request is denied, details can be set in the ReplyPkg.
 * `{error, Reason}` - an error that shuts down the related FSM.
 
-### releas/2
+### release/2
 Only for informative reasons, the function does not have to return a package, it is passed it's state and the release package and can return either:
-* `{ok, State}` - return normall.
+* `{ok, State}` - return normal.
 * `{error, Reason}` - an error that shuts down the related FSM.
 
 ## Configuration
