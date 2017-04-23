@@ -1,3 +1,9 @@
+-ifdef(time_correction).
+-define(CURRENT_TIME, erlang:timestamp()).
+-else.
+-define(CURRENT_TIME, erlang:now()).
+-endif.
+
 -type message_type() ::
         discover | offer | request | decline |
         ack | nck | release | inform | force_renew.

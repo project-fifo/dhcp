@@ -92,7 +92,7 @@ init([Socket, Handler]) ->
                          initial_timeout = Ti,
                          offer_timeout = To,
                          request_timeout = Tr,
-                         last = erlang:now()}, ?S(10)}.
+                         last = ?CURRENT_TIME}, ?S(10)}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -156,10 +156,10 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
             case delegate(request, Pkg, State) of
                 {ok, RPkg, State1} ->
                     Timeout = dhcp_package:get_option(ip_address_lease_time, dhcp_package:get_option(ip_address_lease_time, 3000, RPkg), Pkg),
-                    {next_state, bound, State#state{last=erlang:now(),
+                    {next_state, bound, State#state{last=?CURRENT_TIME,
                                                     handler_state = State1}, ?S(Timeout)};
                 {ok, State1} ->
-                    {next_state, offered, State#state{last=erlang:now(),
+                    {next_state, offered, State#state{last=?CURRENT_TIME,
                                                       handler_state = State1}, ?S(To)};
                 _ ->
                     {stop, normal, State}
@@ -198,7 +198,7 @@ bound(Pkg = #dhcp_package{xid = _XId, message_type = request},
             case delegate(request, Pkg, State) of
                 {ok, RPkg, State1} ->
                     Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
-                    {next_state, bound, State#state{last=erlang:now(),
+                    {next_state, bound, State#state{last=?CURRENT_TIME,
                                                     handler_state = State1}, Timeout};
                 _ ->
                     {stop, normal, State}
@@ -335,12 +335,12 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                     Dst = reply_addr(R),
                     {ok, Bin} = dhcp_package:encode(R),
                     gen_udp:send(State#state.socket, Dst, 68, Bin),
-                    {ok, R, State#state{handler_state = S1, last=erlang:now()}};
+                    {ok, R, State#state{handler_state = S1, last=?CURRENT_TIME}};
                 false ->
                     lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, R])
             end;
         {ok, S1} ->
-            {ok, State#state{handler_state = S1, last=erlang:now()}};
+            {ok, State#state{handler_state = S1, last=?CURRENT_TIME}};
         E ->
             E
     end.
