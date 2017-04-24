@@ -8,3 +8,8 @@ priv
 *.plt
 *~
 _build
+.DS_Store
+.eqc-info
+.eqc/
+.rebar3/
+current_counterexample.eqc
