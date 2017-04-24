@@ -1,14 +1,12 @@
 -module(dhcp_eqc).
 
--define(M, dhcp).
-
--ifdef(TEST).
--ifdef(EQC).
--include_lib("fqc/include/fqc.hrl").
--include_lib("eunit/include/eunit.hrl").
 -compile(export_all).
 
--include("dhcp.hrl").
+-include_lib("eqc/include/eqc.hrl").
+-include_lib("eunit/include/eunit.hrl").
+-include_lib("dhcp/include/dhcp.hrl").
+
+-define(M, dhcp).
 
 byte() ->
     choose(0,255).
@@ -22,6 +20,3 @@ prop_ip_tpl_conversion() ->
                 EncDecTpl = ?M:ip_to_tpl(?M:tpl_to_ip(Tpl)),
                 EncDecTpl =:= Tpl
             end).
-
--endif.
--endif.

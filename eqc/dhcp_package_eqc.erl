@@ -1,14 +1,13 @@
 -module(dhcp_package_eqc).
 
--define(M, dhcp_package).
-
--ifdef(TEST).
--ifdef(EQC).
--include_lib("fqc/include/fqc.hrl").
--include_lib("eunit/include/eunit.hrl").
 -compile(export_all).
 
--include("dhcp.hrl").
+-include_lib("eqc/include/eqc.hrl").
+-include_lib("eunit/include/eunit.hrl").
+-include_lib("dhcp/include/dhcp.hrl").
+
+-define(M, dhcp_package).
+
 
 %%%===================================================================
 %%% Generators
@@ -135,6 +134,3 @@ prop_string_conversion() ->
 %%                 {ok, EncDecP} = decode(EncP),
 %%                 EncDecP =:= PMt1
 %%             end).
-
--endif.
--endif.
