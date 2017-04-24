@@ -167,7 +167,7 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
                 {ok, State1} ->
                     {next_state, offered, State#state{last=current_time(),
                                                       handler_state = State1},
-		                                      ?S(To)};
+                                                      ?S(To)};
                 _ ->
                     {stop, normal, State}
             end;
