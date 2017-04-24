@@ -120,7 +120,8 @@ initial(Pkg = #dhcp_package{xid = XId, message_type = discover},
                   [{ip_address_lease_time, 3000}], State) of
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
-            {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr}, ?S(To)};
+            {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr},
+                                               ?S(To)};
         {ok, State1} ->
             {next_state, initial, State1, ?S(Ti)};
         E ->
@@ -155,12 +156,18 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
         {Si, YiAddr} ->
             case delegate(request, Pkg, State) of
                 {ok, RPkg, State1} ->
-                    Timeout = dhcp_package:get_option(ip_address_lease_time, dhcp_package:get_option(ip_address_lease_time, 3000, RPkg), Pkg),
+                    ReqLeaseT = dhcp_package:get_option(ip_address_lease_time,
+                                                        3000, RPkg),
+                    Timeout = dhcp_package:get_option(ip_address_lease_time,
+                                                      ReqLeaseT,
+                                                      Pkg),
                     {next_state, bound, State#state{last=current_time(),
-                                                    handler_state = State1}, ?S(Timeout)};
+                                                    handler_state = State1},
+                                                    ?S(Timeout)};
                 {ok, State1} ->
                     {next_state, offered, State#state{last=current_time(),
-                                                      handler_state = State1}, ?S(To)};
+                                                      handler_state = State1},
+		                                      ?S(To)};
                 _ ->
                     {stop, normal, State}
             end;
@@ -171,7 +178,8 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
             {stop, normal, State}
     end;
 
-offered(#dhcp_package{xid = _XId, message_type = decline}, State = #state{xid = _XId}) ->
+offered(#dhcp_package{xid = _XId, message_type = decline},
+        State = #state{xid = _XId}) ->
     {stop, normal, State};
 
 offered(#dhcp_package{}, State = #state{offer_timeout = To}) ->
@@ -197,9 +205,11 @@ bound(Pkg = #dhcp_package{xid = _XId, message_type = request},
         {Si, YiAddr} ->
             case delegate(request, Pkg, State) of
                 {ok, RPkg, State1} ->
-                    Timeout = dhcp_package:get_option(ip_address_lease_time, RPkg),
+                    Timeout = dhcp_package:get_option(ip_address_lease_time,
+                                                      RPkg),
                     {next_state, bound, State#state{last=current_time(),
-                                                    handler_state = State1}, Timeout};
+                                                    handler_state = State1},
+                                                    Timeout};
                 _ ->
                     {stop, normal, State}
             end;
@@ -316,7 +326,10 @@ delegate(F, Pkg, State) ->
 delegate(F, Pkg, Opts, State = #state{handler = M}) ->
     RPkg = lists:foldl(fun(O, P) ->
                                dhcp_package:set_option(O, P)
-                       end, dhcp_package:clone(Pkg), [{dhcp_server_identifier, State#state.server_identifier} | Opts]),
+                       end,
+                       dhcp_package:clone(Pkg),
+                       [{dhcp_server_identifier, State#state.server_identifier}
+                        | Opts]),
     RPkg1 = dhcp_package:set_op(reply, RPkg),
     case  M:F(RPkg1, Pkg, State#state.handler_state) of
         {ok, Reply, S1} ->
@@ -327,7 +340,8 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                         dhcp_package:set_message_type(Op, R0);
                     {Op, IP, Mask, R0} when Op =:= offer orelse Op =:= ack ->
                         set_res(Op, IP, Mask, R0);
-                    {Op, IP, Mask, GWInfo, R0} when Op =:= offer orelse Op =:= ack ->
+                    {Op, IP, Mask, GWInfo, R0} when Op =:= offer orelse
+                                                    Op =:= ack ->
                         set_res(Op, IP, Mask, GWInfo, R0)
                 end,
             case dhcp_package:valid_reply(R) of
@@ -335,9 +349,11 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                     Dst = reply_addr(R),
                     {ok, Bin} = dhcp_package:encode(R),
                     gen_udp:send(State#state.socket, Dst, 68, Bin),
-                    {ok, R, State#state{handler_state = S1, last=current_time()}};
+                    {ok, R, State#state{handler_state = S1,
+                                        last=current_time()}};
                 false ->
-                    lager:error("[DHCP] invalid reply package for ~p:~p -> ~p", [M, F, R])
+                    ErrStr = "[DHCP] invalid reply package for ~p:~p -> ~p",
+                    lager:error(ErrStr, [M, F, R])
             end;
         {ok, S1} ->
             {ok, State#state{handler_state = S1, last=current_time()}};
