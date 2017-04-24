@@ -24,5 +24,6 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, [?CHILD(dhcp_fsm_sup, supervisor), ?CHILD(dhcp_server, worker)]} }.
+    {ok, {{one_for_one, 5, 10},
+          [?CHILD(dhcp_fsm_sup, supervisor), ?CHILD(dhcp_server, worker)]}}.
 

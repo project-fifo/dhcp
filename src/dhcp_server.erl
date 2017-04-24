@@ -31,11 +31,13 @@
 
 -record(state, {socket, handlers = []}).
 -type mac_match_byte() :: byte() | '_'.
--type mac_match() :: '_' | {mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte(), mac_match_byte()}.
+-type mac_match() :: '_' | {mac_match_byte(), mac_match_byte(),
+                            mac_match_byte(), mac_match_byte(),
+                            mac_match_byte(), mac_match_byte()}.
 -type field_match() :: {dhcp:package_fields(),
                         dhcp:op() | dhcp:htype() | byte() | dhcp:int32() |
-                        dhcp:ip() | dhcp:mac() | binary() | dhcp:message_type() |
-                        dhcp:flags()}.
+                        dhcp:ip() | dhcp:mac() | binary() |
+                        dhcp:message_type() | dhcp:flags()}.
 -type option_match() :: dhcp:option().
 -type match_spec() :: {mac_match(), [field_match()], [option_match()]}.
 
@@ -55,7 +57,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 -spec register_handler(Handler::atom(), Spec::match_spec()) -> ok | {error, _}.
-register_handler(Handler, Spec = {_,_,_}) when is_atom(Handler)->
+register_handler(Handler, Spec = {_, _, _}) when is_atom(Handler)->
     gen_server:call(?SERVER, {register, Handler, Spec}).
 
 %%%===================================================================
@@ -127,35 +129,17 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info ({udp, Socket, _IP, 68, Packet}, State = #state{socket=Socket, handlers = Handler}) ->
+handle_info({udp, Socket, _IP, 68, Packet},
+            State = #state{socket=Socket, handlers = Handler}) ->
     case dhcp_package:decode(Packet) of
         {ok, D} ->
+            ID = {D#dhcp_package.chaddr, D#dhcp_package.xid},
             MT = D#dhcp_package.message_type,
-            ID  = {D#dhcp_package.chaddr, D#dhcp_package.xid},
             case {ets:lookup(?TBL, ID), MT} of
                 {[], discover} ->
-                    case match(D, Handler) of
-                        {ok, H} ->
-                            {ok, Pid} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
-                            gen_fsm:send_event(Pid, D),
-                            ets:insert(?TBL, {ID, Pid});
-                        _ ->
-                            ok
-                    end;
+                    do_start_child(D, ID, Handler, Socket);
                 {[{ID, Pid}], _} ->
-                    case  process_info(Pid) of
-                        undefined ->
-                            case match(D, Handler) of
-                                {ok, H} ->
-                                    {ok, Pid1} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
-                                    gen_fsm:send_event(Pid1, D),
-                                    ets:insert(?TBL, {ID, Pid1});
-                                _ ->
-                                    ok
-                            end;
-                        _ ->
-                            gen_fsm:send_event(Pid, D)
-                    end;
+                    maybe_start_and_send(D, ID, Pid, Handler, Socket);
                 _ ->
                     ok
             end;
@@ -195,7 +179,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
--spec match(Pkg::dhcp:package(), [{Handler::atom(), Spec::match_spec()}]) -> {ok, Handler::atom()} | undefined.
+-spec match(Pkg::dhcp:package(), [{Handler::atom(), Spec::match_spec()}]) ->
+                   {ok, Handler::atom()} | undefined.
 match(Pkg, [{Handler, Spec} | R]) ->
     case match_pkg(Pkg, Spec) of
         true ->
@@ -221,7 +206,7 @@ match_mac({A, B, _, _, _, _}, {A, B, '_', '_', '_', '_'}) -> true;
 match_mac({A, _, _, _, _, _}, {A, '_', '_', '_', '_', '_'}) -> true;
 match_mac({_, _, _, _, _, _}, {'_', '_', '_', '_', '_', '_'}) -> true;
 match_mac({_, _, _, _, _, _}, '_') -> true;
-match_mac(_,_) -> false.
+match_mac(_, _) -> false.
 
 -spec match_fields(P::dhcp:package(), [field_match()]) ->
                           boolean().
@@ -237,3 +222,21 @@ match_opts(P, [{O, V} | Fs]) ->
         match_fields(P, Fs);
 match_opts(_, []) ->
     true.
+
+maybe_start_and_send(Msg, ID, Pid, Handler, Socket) ->
+    case  process_info(Pid) of
+        undefined ->
+            do_start_child(Msg, ID, Handler, Socket);
+        _ ->
+            gen_fsm:send_event(Pid, Msg)
+    end.
+
+do_start_child(Msg, ID, Handler, Socket) ->
+    case match(Msg, Handler) of
+        {ok, H} ->
+            {ok, Pid1} = supervisor:start_child(dhcp_fsm_sup, [Socket, H]),
+            gen_fsm:send_event(Pid1, Msg),
+            ets:insert(?TBL, {ID, Pid1});
+        _ ->
+            ok
+    end.

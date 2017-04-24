@@ -29,14 +29,14 @@
          bound/2
         ]).
 
--ignore_xref([initial/2,offered/2,bound/2,start_link/2]).
+-ignore_xref([initial/2, offered/2, bound/2, start_link/2]).
 
 -define(SERVER, ?MODULE).
 
 -define(S(S), (1000*S)).
 
--record(state, {xid=0,
-                last={0,0,0},
+-record(state, {xid = 0,
+                last = {0, 0, 0},
                 handler,
                 handler_state,
                 socket,
@@ -70,8 +70,8 @@ start_link(Socket, Handler) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Whenever a gen_fsm is started using gen_fsm:start/[3,4] or
-%% gen_fsm:start_link/[3,4], this function is called by the new
+%% Whenever a gen_fsm is started using gen_fsm:start/[3, 4] or
+%% gen_fsm:start_link/[3, 4], this function is called by the new
 %% process to initialize.
 %%
 %% @spec init(Args) -> {ok, StateName, State} |
@@ -81,7 +81,7 @@ start_link(Socket, Handler) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Socket, Handler]) ->
-    {ok, HandlerState, ServerIdentifier} = Handler:init(),
+    {ok, HandlerState, ServerIdentifier} = dhcp_handler:init(Handler),
     {ok, Ti} = application:get_env(initial_timeout),
     {ok, To} = application:get_env(offer_timeout),
     {ok, Tr} = application:get_env(request_timeout),
@@ -121,7 +121,7 @@ initial(Pkg = #dhcp_package{xid = XId, message_type = discover},
         {ok, RPkg, State1} ->
             YiAddr = dhcp_package:get_yiaddr(RPkg),
             {next_state, offered, State1#state{xid = XId, yiaddr = YiAddr},
-                                               ?S(To)};
+             ?S(To)};
         {ok, State1} ->
             {next_state, initial, State1, ?S(Ti)};
         E ->
@@ -163,11 +163,11 @@ offered(Pkg = #dhcp_package{xid = _XId, message_type = request},
                                                       Pkg),
                     {next_state, bound, State#state{last=current_time(),
                                                     handler_state = State1},
-                                                    ?S(Timeout)};
+                     ?S(Timeout)};
                 {ok, State1} ->
                     {next_state, offered, State#state{last=current_time(),
                                                       handler_state = State1},
-                                                      ?S(To)};
+                     ?S(To)};
                 _ ->
                     {stop, normal, State}
             end;
@@ -192,7 +192,7 @@ bound(timeout, State) ->
 
 bound(Pkg = #dhcp_package{xid = _XId, message_type = release},
       State = #state{xid = _XId, handler = M, handler_state = S}) ->
-    case M:release(Pkg, S) of
+    case dhcp_handler:release(M, Pkg, S) of
         {ok, S1} ->
             {stop, normal, State#state{handler_state = S1}};
         _ ->
@@ -209,7 +209,7 @@ bound(Pkg = #dhcp_package{xid = _XId, message_type = request},
                                                       RPkg),
                     {next_state, bound, State#state{last=current_time(),
                                                     handler_state = State1},
-                                                    Timeout};
+                     Timeout};
                 _ ->
                     {stop, normal, State}
             end;
@@ -225,7 +225,7 @@ bound(Pkg = #dhcp_package{xid = _XId, message_type = request},
 %% @doc
 %% There should be one instance of this function for each possible
 %% state name. Whenever a gen_fsm receives an event sent using
-%% gen_fsm:sync_send_event/[2,3], the instance of this function with
+%% gen_fsm:sync_send_event/[2, 3], the instance of this function with
 %% the same name as the current state name StateName is called to
 %% handle the event.
 %%
@@ -259,7 +259,7 @@ handle_event(_Event, StateName, State) ->
 %% @private
 %% @doc
 %% Whenever a gen_fsm receives an event sent using
-%% gen_fsm:sync_send_all_state_event/[2,3], this function is called
+%% gen_fsm:sync_send_all_state_event/[2, 3], this function is called
 %% to handle the event.
 %%
 %% @spec handle_sync_event(Event, From, StateName, State) ->
@@ -282,7 +282,7 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %% message other than a synchronous or asynchronous event
 %% (or a system message).
 %%
-%% @spec handle_info(Info,StateName,State)->
+%% @spec handle_info(Info, StateName, State)->
 %%                   {next_state, NextStateName, NextState} |
 %%                   {next_state, NextStateName, NextState, Timeout} |
 %%                   {stop, Reason, NewState}
@@ -331,7 +331,7 @@ delegate(F, Pkg, Opts, State = #state{handler = M}) ->
                        [{dhcp_server_identifier, State#state.server_identifier}
                         | Opts]),
     RPkg1 = dhcp_package:set_op(reply, RPkg),
-    case  M:F(RPkg1, Pkg, State#state.handler_state) of
+    case  dhcp_handler:F(M, RPkg1, Pkg, State#state.handler_state) of
         {ok, Reply, S1} ->
             R = case Reply of
                     #dhcp_package{} ->
@@ -373,13 +373,13 @@ set_res(Op, IP, Mask, R0) ->
 
 
 reply_addr(#dhcp_package{flags = [broadcast]}) ->
-    {255,255,255,255};
+    {255, 255, 255, 255};
 reply_addr(#dhcp_package{message_type = offer}) ->
-    {255,255,255,255};
+    {255, 255, 255, 255};
 reply_addr(#dhcp_package{message_type = nack}) ->
-    {255,255,255,255};
+    {255, 255, 255, 255};
 reply_addr(#dhcp_package{ciaddr = 0}) ->
-    {255,255,255,255};
+    {255, 255, 255, 255};
 reply_addr(#dhcp_package{ciaddr = Addr}) ->
     <<A:8, B:8, C:8, D:8>> = <<Addr:32>>,
     {A, B, C, D}.

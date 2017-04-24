@@ -94,6 +94,7 @@
               get_message_type/1,
               valid_request/1]).
 
+-type dhcp_package() :: #dhcp_package{}.
 
 -define(IS_BYTE(V), is_integer(V), V >= 0, V =< 255).
 -define(IS_SHORT(V), is_integer(V), V >= 0, V =< 16#FFFF).
@@ -113,7 +114,8 @@
                           {error, message_type} |
                           {error, bad_package}.
 
-decode(<<Op:8/unsigned-integer, HType:8/unsigned-integer, HLen:8/unsigned-integer, Hops:8/unsigned-integer,
+decode(<<Op:8/unsigned-integer, HType:8/unsigned-integer,
+         HLen:8/unsigned-integer, Hops:8/unsigned-integer,
          XId:32/unsigned-integer,
          Secs:16/unsigned-integer, Flags:2/binary,
          CiAddr:32/unsigned-integer,
@@ -160,7 +162,7 @@ decode(P) ->
 %% by the message type set via set_message_type.
 %% @end
 %%--------------------------------------------------------------------
--spec encode(Message::#dhcp_package{}) -> binary().
+-spec encode(Message::dhcp_package()) -> binary().
 encode(#dhcp_package{
           op = Op, htype = HType, hlen = HLen, hops = Hops,
           xid = XId,
@@ -176,7 +178,8 @@ encode(#dhcp_package{
           message_type = MT
          }) ->
     Options1 = lists:keystore(message_type, 1, Options, {message_type, MT}),
-    {ok, <<(encode_op(Op)):8/unsigned-integer, (encode_htype(HType)):8/unsigned-integer,
+    {ok, <<(encode_op(Op)):8/unsigned-integer,
+           (encode_htype(HType)):8/unsigned-integer,
            HLen:8/unsigned-integer, Hops:8/unsigned-integer,
            XId:32/unsigned-integer,
            Secs:16/unsigned-integer, (encode_flags(Flags)):2/binary,
@@ -195,7 +198,7 @@ encode(#dhcp_package{
 %% file, options and message_type
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Message::#dhcp_package{}) -> #dhcp_package{}.
+-spec clone(Message::dhcp_package()) -> dhcp_package().
 clone(M) ->
     M#dhcp_package{
       hops = 0,
@@ -213,7 +216,8 @@ clone(M) ->
 %% @end
 %%--------------------------------------------------------------------
 
--spec get_option(Option::atom(), Default::term(), Message::#dhcp_package{}) -> term().
+-spec get_option(Option::atom(), Default::term(), Message::dhcp_package()) ->
+                        term().
 get_option(Option, Default, #dhcp_package{options = Options}) ->
     case lists:keyfind(Option, 1, Options) of
         {Option, Value} ->
@@ -228,7 +232,8 @@ get_option(Option, Default, #dhcp_package{options = Options}) ->
 %% otherwised.
 %% @end
 %%--------------------------------------------------------------------
--spec get_option(Option::atom(), Message::#dhcp_package{}) -> undefined | term().
+-spec get_option(Option::atom(), Message::dhcp_package()) ->
+                        undefined | term().
 get_option(Option, Message) ->
     get_option(Option, undefined, Message).
 
@@ -238,8 +243,9 @@ get_option(Option, Message) ->
 %% one.
 %% @end
 %%--------------------------------------------------------------------
--spec set_option(Option::dhcp_option(), Message::#dhcp_package{}) -> #dhcp_package{}.
-set_option(Option = {Key,  _}, Message) ->
+-spec set_option(Option::dhcp_option(), Message::dhcp_package()) ->
+                        dhcp_package().
+set_option(Option = {Key, _}, Message) ->
     Message#dhcp_package{
       options =
           lists:keystore(Key, 1, Message#dhcp_package.options, Option)}.
@@ -251,8 +257,9 @@ set_option(Option = {Key,  _}, Message) ->
 %% otherwised.
 %% @end
 %%--------------------------------------------------------------------
--spec ensure_option(Option::dhcp_option(), Message::#dhcp_package{}) -> #dhcp_package{}.
-ensure_option(Option = {Key,  _}, Message) ->
+-spec ensure_option(Option::dhcp_option(), Message::dhcp_package()) ->
+                           dhcp_package().
+ensure_option(Option = {Key, _}, Message) ->
     case get_option(Key, Message) of
         undefined ->
             set_option(Option, Message);
@@ -266,7 +273,8 @@ ensure_option(Option = {Key,  _}, Message) ->
 %% replaces.
 %% @end
 %%--------------------------------------------------------------------
--spec merge_options(Options::[dhcp_option()], Message::#dhcp_package{}) -> #dhcp_package{}.
+-spec merge_options(Options::[dhcp_option()], Message::dhcp_package()) ->
+                           dhcp_package().
 merge_options([], Message) ->
     Message;
 
@@ -278,22 +286,26 @@ merge_options([O|R], Message) ->
 %% Sets a field in the package, only valid datatypes allowd.
 %% @end
 %%--------------------------------------------------------------------
--spec set_field(op, V::dhcp_op(), M::#dhcp_package{}) -> #dhcp_package{};
-               (htype, V::htype(), M::#dhcp_package{}) -> #dhcp_package{};
-               (hlen, V::byte(), M::#dhcp_package{}) -> #dhcp_package{};
-               (hops, V::byte(), M::#dhcp_package{}) -> #dhcp_package{};
-               (xid, V::int32(), M::#dhcp_package{}) -> #dhcp_package{};
-               (secs, V::short(), M::#dhcp_package{}) -> #dhcp_package{};
-               (flags, V::dhcp_flags(), M::#dhcp_package{}) -> #dhcp_package{};
-               (ciaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
-               (yiaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
-               (siaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
-               (giaddr, V::ip(), M::#dhcp_package{}) -> #dhcp_package{};
-               (chaddr, V::mac(), M::#dhcp_package{}) -> #dhcp_package{};
-               (sname, V::null_terminated_string(), M::#dhcp_package{}) -> #dhcp_package{};
-               (file, V::null_terminated_string(), M::#dhcp_package{}) -> #dhcp_package{};
-               (options, V::[dhcp_option()], M::#dhcp_package{}) -> #dhcp_package{};
-               (message_type, V::message_type(), M::#dhcp_package{}) -> #dhcp_package{}.
+-spec set_field(op, V::dhcp_op(), M::dhcp_package()) -> dhcp_package();
+               (htype, V::htype(), M::dhcp_package()) -> dhcp_package();
+               (hlen, V::byte(), M::dhcp_package()) -> dhcp_package();
+               (hops, V::byte(), M::dhcp_package()) -> dhcp_package();
+               (xid, V::int32(), M::dhcp_package()) -> dhcp_package();
+               (secs, V::short(), M::dhcp_package()) -> dhcp_package();
+               (flags, V::dhcp_flags(), M::dhcp_package()) -> dhcp_package();
+               (ciaddr, V::ip(), M::dhcp_package()) -> dhcp_package();
+               (yiaddr, V::ip(), M::dhcp_package()) -> dhcp_package();
+               (siaddr, V::ip(), M::dhcp_package()) -> dhcp_package();
+               (giaddr, V::ip(), M::dhcp_package()) -> dhcp_package();
+               (chaddr, V::mac(), M::dhcp_package()) -> dhcp_package();
+               (sname, V::null_terminated_string(), M::dhcp_package()) ->
+                       dhcp_package();
+               (file, V::null_terminated_string(), M::dhcp_package()) ->
+                       dhcp_package();
+               (options, V::[dhcp_option()], M::dhcp_package()) ->
+                       dhcp_package();
+               (message_type, V::message_type(), M::dhcp_package()) ->
+                       dhcp_package().
 set_field(op, V, M) ->
     set_op(V, M);
 set_field(htype, V, M) ->
@@ -353,7 +365,7 @@ set_siaddr(SiAddr, M) when ?IS_INT(SiAddr) ->
     M#dhcp_package{siaddr = SiAddr}.
 set_giaddr(GiAddr, M) when ?IS_INT(GiAddr) ->
     M#dhcp_package{giaddr = GiAddr}.
-set_chaddr(ChAddr = {_,_,_,_,_,_}, M) ->
+set_chaddr(ChAddr = {_, _, _, _, _, _}, M) ->
     M#dhcp_package{chaddr = ChAddr}.
 set_sname(SName, M) when is_binary(SName) ->
     M#dhcp_package{sname = SName}.
@@ -364,22 +376,22 @@ set_options(Options, M) when is_list(Options) ->
 set_message_type(MT, M) when is_atom(MT) ->
     M#dhcp_package{message_type = MT}.
 
--spec get_field(op, M::#dhcp_package{}) -> dhcp_op();
-               (htype, M::#dhcp_package{}) -> htype();
-               (hlen, M::#dhcp_package{}) -> byte();
-               (hops, M::#dhcp_package{}) -> byte();
-               (xid, M::#dhcp_package{}) -> int32();
-               (secs, M::#dhcp_package{}) -> short();
-               (flags, M::#dhcp_package{}) -> dhcp_flags();
-               (ciaddr, M::#dhcp_package{}) -> ip();
-               (yiaddr, M::#dhcp_package{}) -> ip();
-               (siaddr, M::#dhcp_package{}) -> ip();
-               (giaddr, M::#dhcp_package{}) -> ip();
-               (chaddr, M::#dhcp_package{}) -> mac();
-               (sname,  M::#dhcp_package{}) -> null_terminated_string();
-               (file, M::#dhcp_package{}) -> null_terminated_string();
-               (options, M::#dhcp_package{}) -> [dhcp_option()];
-               (message_type, M::#dhcp_package{}) -> message_type().
+-spec get_field(op, M::dhcp_package()) -> dhcp_op();
+               (htype, M::dhcp_package()) -> htype();
+               (hlen, M::dhcp_package()) -> byte();
+               (hops, M::dhcp_package()) -> byte();
+               (xid, M::dhcp_package()) -> int32();
+               (secs, M::dhcp_package()) -> short();
+               (flags, M::dhcp_package()) -> dhcp_flags();
+               (ciaddr, M::dhcp_package()) -> ip();
+               (yiaddr, M::dhcp_package()) -> ip();
+               (siaddr, M::dhcp_package()) -> ip();
+               (giaddr, M::dhcp_package()) -> ip();
+               (chaddr, M::dhcp_package()) -> mac();
+               (sname, M::dhcp_package()) -> null_terminated_string();
+               (file, M::dhcp_package()) -> null_terminated_string();
+               (options, M::dhcp_package()) -> [dhcp_option()];
+               (message_type, M::dhcp_package()) -> message_type().
 get_field(op, M) ->
     get_op(M);
 get_field(htype, M) ->
@@ -858,7 +870,8 @@ encode_option_pack({K, V}) ->
             {ok, Type} = option_type(ID),
             <<ID:8, (encode_type(Type, V))/binary>>;
         _ ->
-            lager:warning("[DHCP] Trying to encode unsupported option pair ~p: ~p", [K, V]),
+            lager:warning("[DHCP] Trying to encode unsupported "
+                          "option pair ~p: ~p", [K, V]),
             <<>>
     end.
 
@@ -904,8 +917,9 @@ valid_request(#dhcp_package{message_type = force_renew}) ->
 valid_request(_) ->
     false.
 
-valid_reply(P = #dhcp_package{message_type = offer, yiaddr=Y}) when Y > 0,
-                                                                    Y < 16#FFFFFFFF ->
+valid_reply(P = #dhcp_package{message_type = offer, yiaddr=Y})
+  when Y > 0,
+       Y < 16#FFFFFFFF ->
     check_option(P,
                  [ip_address_lease_time,
                   dhcp_server_identifier],
@@ -960,24 +974,33 @@ decode_test() ->
           1,
           6,
           0,
-          227,48,230,107,
-          0,1,
-          0,0,
-          0,0,0,0,
-          0,0,0,0,
-          0,0,0,0,
-          0,0,0,0,
-          16,154,221,112,125,122,0,0,0,0,0,0,0,0,0,0,
-          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-          99,130,83,99,
-          53,1,1,
-          55,9,1,3,6,15,119,95,252,44,46,
-          57,2,5,220,
-          61,7,1,16,154,221,112,125,122,
-          51,4,0,118,167,0,
-          12,12,83,99,104,114,111,101,100,105,110,103,101,114,
-          255,0,0,0,0,0,0,0,0,0,0,0,0>>,
+          227, 48, 230, 107,
+          0, 1,
+          0, 0,
+          0, 0, 0, 0,
+          0, 0, 0, 0,
+          0, 0, 0, 0,
+          0, 0, 0, 0,
+          16, 154, 221, 112, 125, 122, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+          99, 130, 83, 99,
+          53, 1, 1,
+          55, 9, 1, 3, 6, 15, 119, 95, 252, 44, 46,
+          57, 2, 5, 220,
+          61, 7, 1, 16, 154, 221, 112, 125, 122,
+          51, 4, 0, 118, 167, 0,
+          12, 12, 83, 99, 104, 114, 111, 101, 100, 105, 110, 103, 101, 114,
+          255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
     {ok, D} = decode(P),
     {ok, P1} = encode(D),
     {ok, D1} = decode(P1),

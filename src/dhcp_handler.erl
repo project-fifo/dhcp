@@ -1,11 +1,13 @@
 -module(dhcp_handler).
 
+-export([init/1, discover/4, request/4, release/3]).
+
 -ignore_xref([behaviour_info/1]).
 -type state() :: any().
 -type server_id() :: dhcp:ip().
 
--callback init()
-	-> {ok, state(), server_id()}.
+-callback init() ->
+    {ok, state(), server_id()}.
 
 -callback discover(ReplyPkg, RequestPkg, state()) ->
     {ok, state()} |
@@ -37,3 +39,16 @@
 -callback release(RequestPkg, state()) ->
     {ok, state()} |
     {error, any()} when RequestPkg::dhcp:package().
+
+
+init(Handler) ->
+    Handler:init().
+
+request(Handler, ReplyPkg, RequestPkg, State) ->
+    Handler:request(ReplyPkg, RequestPkg, State).
+
+discover(Handler, ReplyPkg, RequestPkg, State) ->
+    Handler:discover(ReplyPkg, RequestPkg, State).
+
+release(Handler, RequestPkg, State) ->
+    Handler:release(RequestPkg, State).
